@@ -1,294 +1,332 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost-Typer Dashboard</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            margin: 0;
-            padding: 20px;
-        }
+{% block title %}Upload Mode - Ghost-Typer{% endblock %}
 
-        .container {
-            max-width: 1000px;
-            margin: auto;
-        }
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/components/editor.css">
+<link rel="stylesheet" href="/static/css/components/cards.css">
+{% endblock %}
 
-        h1 {
-            color: #569cd6;
-        }
+{% block content %}
+<a href="/" class="back-link">Back to Home</a>
+<h1>Upload & Analyze</h1>
 
-        .card {
-            background-color: #252526;
-            border: 1px solid #3e3e42;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .log-entry {
-            border-bottom: 1px solid #3e3e42;
-            padding: 15px 0;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .timestamp {
-            color: #4ec9b0;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-        }
-
-        pre {
-            background-color: #1e1e1e;
-            padding: 12px;
-            border-radius: 4px;
-            overflow-x: auto;
-            border: 1px solid #333;
-        }
-
-        code.code-block {
-            color: #9cdcfe;
-        }
-
-        code.doc-block {
-            color: #ce9178;
-        }
-
-        .status {
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-weight: bold;
-            background-color: #007acc;
-            display: inline-block;
-            margin-bottom: 15px;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <a href="/" style="display: inline-block; margin-bottom: 20px; color: #569cd6; text-decoration: none;">&larr;
-            Back to Home</a>
-        <h1>Ghost-Typing Auto-Documenter</h1>
-        <div class="card">
-            <div class="status" id="serverStatus">● Server Online</div>
-            <p>Waiting for hotkey triggers from the client listener (Ctrl+Alt+D)...</p>
-
-            <hr style="border-color: #3e3e42; margin: 20px 0;">
-            <h3>Manual Upload & Analyze</h3>
-            <p>Upload a Python file to view it in the IDE and automatically generate docstrings line-by-line.</p>
-            <input type="file" id="fileInput" accept=".py" style="display: none;">
-
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button onclick="document.getElementById('fileInput').click()"
-                    style="padding: 10px 15px; background: #007acc; border: none; color: white; border-radius: 4px; cursor: pointer; font-size: 14px;">Upload
-                    Python File</button>
-                <button id="runCodeBtn" onclick="runCode()"
-                    style="padding: 10px 15px; background: #4ec9b0; border: none; color: #1e1e1e; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; display: none;">▶
-                    Run Code</button>
-            </div>
-
-            <div id="editorContainer"
-                style="height: 500px; width: 100%; border: 1px solid #3e3e42; margin-top: 20px; display: none;"></div>
-
-            <div id="terminalContainer" style="display: none; margin-top: 20px;">
-                <h3 style="margin-top: 0; color: #d7ba7d;">Terminal Output</h3>
-                <pre id="terminalOutput"
-                    style="background-color: #1e1e1e; padding: 15px; border: 1px solid #333; border-radius: 4px; min-height: 100px; max-height: 250px; overflow-y: auto; color: #d4d4d4; font-family: 'Courier New', Courier, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word;">Ready...</pre>
-            </div>
-        </div>
-
-        <h2>Recent Generations via Hotkey</h2>
-        <div class="card" id="historyCard">
-            {% if history %}
-            {% for entry in history %}
-            <div class="log-entry">
-                <div class="timestamp">{{ entry.timestamp }}</div>
-                <p><strong>Code Snippet:</strong></p>
-                <pre><code class="code-block">{{ entry.code }}</code></pre>
-                <p><strong>Generated Docstring:</strong></p>
-                <pre><code class="doc-block">{{ entry.docstring }}</code></pre>
-            </div>
-            {% endfor %}
-            {% else %}
-            <p>No documentation generated yet.</p>
-            {% endif %}
-        </div>
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="status" id="serverStatus">Server Online</div>
     </div>
+    <p>Waiting for hotkey triggers from the client listener (Ctrl+Alt+D), or upload a Python file directly below.</p>
 
-    <!-- Load Monaco Editor via CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
-    <script>
-        // Setup Monaco
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
-        let editor;
-        let isEditing = false;
+    <hr>
 
-        require(['vs/editor/editor.main'], function () {
-            editor = monaco.editor.create(document.getElementById('editorContainer'), {
-                value: '',
-                language: 'python',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                scrollBeyondLastLine: false
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <button onclick="document.getElementById('fileInput').click()" class="btn-primary">Upload File</button>
+            <select id="docLevelSelect" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                <option value="minimum">Docs: Classes & Functions</option>
+                <option value="medium">Docs: Medium Density</option>
+                <option value="maximum" selected>Docs: Line-by-Line</option>
+            </select>
+        </div>
+        <button id="runCodeBtn" onclick="runCode()" class="btn-run">Run Code</button>
+    </div>
+    <input type="file" id="fileInput" accept=".py" style="display: none;">
+
+    <div id="editorContainer" class="editor-container"></div>
+
+    <div id="terminalContainer" class="terminal-container">
+        <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Terminal Output</h3>
+        <pre id="terminalOutput" class="terminal-output">Ready...</pre>
+    </div>
+</div>
+
+<h2>Recent Generations</h2>
+<div class="card" id="historyCard">
+    {% if history %}
+    {% for entry in history %}
+    <div class="log-entry">
+        <div class="timestamp">{{ entry.timestamp }}</div>
+        <p style="margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Code Snippet:</p>
+        <pre><code class="code-block">{{ entry.code }}</code></pre>
+        <p style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Generated Docstring:
+        </p>
+        <pre><code class="doc-block">{{ entry.docstring }}</code></pre>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p>No documentation generated yet.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Load Monaco Editor via CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+<script>
+    // Setup Monaco
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
+    let editor;
+    let isEditing = false;
+
+    require(['vs/editor/editor.main'], function () {
+        editor = monaco.editor.create(document.getElementById('editorContainer'), {
+            value: '',
+            language: 'python',
+            theme: 'vs-dark',
+            automaticLayout: true,
+            scrollBeyondLastLine: false,
+            minimap: { enabled: false }
+        });
+
+        // Register Explain Code Context Menu Action
+        editor.addAction({
+            id: 'explain-code',
+            label: 'Explain Code...',
+            contextMenuGroupId: 'navigation',
+            contextMenuOrder: 1.5,
+            precondition: null,
+            keybindingContext: null,
+            run: function (ed) {
+                onExplainCodeContext(ed);
+            }
+        });
+    });
+
+    document.getElementById('fileInput').addEventListener('change', async function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const text = await file.text();
+        document.getElementById('editorContainer').classList.add('editor-container-visible');
+        document.getElementById('runCodeBtn').classList.add('btn-run-visible');
+        document.getElementById('terminalContainer').style.display = 'block';
+        if (editor) editor.setValue(text);
+
+        isEditing = true; // Stop auto-refresh
+        document.getElementById('serverStatus').innerText = "Analyzing File";
+        document.getElementById('serverStatus').style.backgroundColor = "var(--warning)";
+
+        // Short timeout to allow UI to render the editor
+        setTimeout(async () => {
+            if (confirm("Generate comments for the code?")) {
+                await generateCommentsForCode(text);
+            } else {
+                document.getElementById('serverStatus').innerText = "Server Online";
+                document.getElementById('serverStatus').style.backgroundColor = "var(--accent-primary)";
+            }
+        }, 500);
+    });
+
+    async function generateCommentsForCode(codeText) {
+
+        const docLevel = document.getElementById('docLevelSelect').value || 'maximum';
+
+        // Try to guess language based on some generic variable again (since this is out of scope of the change listener)
+        let langId = editor.getModel().getLanguageId() || 'python';
+
+        try {
+            // Extract
+            const res = await fetch('/api/extract-symbols', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: codeText,
+                    language: langId,
+                    doc_level: docLevel
+                })
             });
-        });
 
-        document.getElementById('fileInput').addEventListener('change', async function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
+            if (!res.ok) throw new Error("Failed extraction");
 
-            const text = await file.text();
-            document.getElementById('editorContainer').style.display = 'block';
-            document.getElementById('runCodeBtn').style.display = 'block';
-            document.getElementById('terminalContainer').style.display = 'block';
-            if (editor) editor.setValue(text);
+            const data = await res.json();
+            const items = data.items;
 
-            isEditing = true; // Stop auto-refresh
-            document.getElementById('serverStatus').innerText = "● Analyzing File";
-            document.getElementById('serverStatus').style.backgroundColor = "#d7ba7d"; // Yellowish
+            if (!items || items.length === 0) {
+                alert("No classes or functions found to comment (or they already have docstrings).");
+                document.getElementById('serverStatus').innerText = "Server Online";
+                document.getElementById('serverStatus').style.backgroundColor = "var(--accent-primary)";
+                return;
+            }
 
-            // Short timeout to allow UI to render the editor
-            setTimeout(async () => {
-                if (confirm("Generate comments for the code?")) {
-                    await generateCommentsForCode(text);
-                } else {
-                    document.getElementById('serverStatus').innerText = "● Server Online";
-                    document.getElementById('serverStatus').style.backgroundColor = "#007acc";
-                }
-            }, 500);
-        });
-
-        async function generateCommentsForCode(codeText) {
-            try {
-                // 1. Extract symbols
-                const res = await fetch('/api/extract-symbols', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: editor.getValue() })
-                });
-
-                if (!res.ok) throw new Error("Failed to extract symbols.");
-
-                const data = await res.json();
-                const items = data.items;
-
-                if (!items || items.length === 0) {
-                    alert("No classes or functions found to comment (or they already have docstrings).");
-                    document.getElementById('serverStatus').innerText = "● Server Online";
-                    document.getElementById('serverStatus').style.backgroundColor = "#007acc";
-                    return;
-                }
-
-                // 2. Loop through and fetch docstrings
+            if (items && items.length > 0) {
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
 
-                    document.getElementById('serverStatus').innerText = `● Generating ${i + 1}/${items.length}: ${item.name}...`;
+                    document.getElementById('serverStatus').innerText = `Generating ${i + 1}/${items.length}: ${item.name}...`;
 
                     const genRes = await fetch('/api/generate-comment', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             code_snippet: item.snippet,
-                            indentation: item.indentation,
-                            is_inline: item.is_inline || false
+                            indentation: item.indentation || "",
+                            is_inline: item.is_inline || false,
+                            language: langId,
+                            doc_level: docLevel,
+                            full_replace: item.full_replace || false
                         })
                     });
 
                     if (genRes.ok) {
                         const genData = await genRes.json();
 
-                        // 3. Insert into editor
-                        editor.executeEdits("ai-doc-generator", [{
-                            range: new monaco.Range(item.insert_line, 1, item.insert_line, 1),
-                            text: genData.docstring,
-                            forceMoveMarkers: true
-                        }]);
-
-                        // Reveal the inserted docstring
-                        editor.revealLineInCenter(item.insert_line);
-
+                        if (item.full_replace) {
+                            const fullRange = editor.getModel().getFullModelRange();
+                            editor.executeEdits("ai-doc-generator", [{
+                                range: fullRange,
+                                text: genData.docstring,
+                                forceMoveMarkers: true
+                            }]);
+                        } else {
+                            editor.executeEdits("ai-doc-generator", [{
+                                range: new monaco.Range(item.insert_line, 1, item.insert_line, 1),
+                                text: genData.docstring,
+                                forceMoveMarkers: true
+                            }]);
+                            editor.revealLineInCenter(item.insert_line);
+                        }
                         // Wait a bit to simulate "ghost typing" reading pace
                         await new Promise(r => setTimeout(r, 600));
                     }
                 }
-
-                document.getElementById('serverStatus').innerText = "● Generation Complete";
-                document.getElementById('serverStatus').style.backgroundColor = "#4ec9b0"; // Greenish
-
-            } catch (err) {
-                console.error(err);
-                alert("An error occurred during generation: " + err.message);
-                document.getElementById('serverStatus').innerText = "● Error";
-                document.getElementById('serverStatus').style.backgroundColor = "#f44336";
             }
+            document.getElementById('serverStatus').innerText = "Generation Complete";
+            document.getElementById('serverStatus').style.backgroundColor = "var(--success)";
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred during generation: " + err.message);
+            document.getElementById('serverStatus').innerText = "Error";
+            document.getElementById('serverStatus').style.backgroundColor = "var(--danger)";
+        }
+    }
+
+    async function runCode() {
+        const btn = document.getElementById('runCodeBtn');
+        const term = document.getElementById('terminalOutput');
+        const currentCode = editor.getValue();
+
+        if (!currentCode.trim()) {
+            term.innerText = "No code to run.";
+            return;
         }
 
-        async function runCode() {
-            const btn = document.getElementById('runCodeBtn');
-            const term = document.getElementById('terminalOutput');
-            const currentCode = editor.getValue();
+        btn.innerText = "Running...";
+        btn.style.backgroundColor = "var(--warning)";
+        term.innerText = "Executing...\n";
+        term.style.color = "var(--text-primary)";
 
-            if (!currentCode.trim()) {
-                term.innerText = "No code to run.";
-                return;
+        try {
+            const res = await fetch('/api/run-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: currentCode })
+            });
+
+            if (!res.ok) throw new Error("Failed to execute code.");
+
+            const data = await res.json();
+
+            if (data.error) {
+                term.style.color = "var(--danger)"; // Red for errors
+                term.innerText = (data.output ? data.output + "\n" : "") + data.error;
+            } else {
+                term.innerText = data.output || "(Code executed successfully with no output)";
             }
+        } catch (err) {
+            term.style.color = "var(--danger)";
+            term.innerText = "Error interacting with backend: " + err.message;
+        } finally {
+            btn.innerText = "Run Code";
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
 
-            btn.innerText = "Running...";
-            btn.style.backgroundColor = "#d7ba7d";
-            term.innerText = "Executing...\n";
-            term.style.color = "#d4d4d4";
+    // Auto-refresh the page every 5 seconds to see new generations dynamically -> only if not editing
+    setInterval(() => {
+        const editorDiv = document.getElementById('editorContainer');
+        const isEditorVisible = editorDiv.classList.contains('editor-container-visible');
 
-            try {
-                const res = await fetch('/api/run-code', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: currentCode })
+        if (!isEditing && !isEditorVisible) {
+            // Only refresh the history box silently using a background fetch to avoid ugly full reloads
+            fetch(window.location.href)
+                .then(r => r.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newHistory = doc.getElementById('historyCard').innerHTML;
+                    document.getElementById('historyCard').innerHTML = newHistory;
                 });
-
-                if (!res.ok) throw new Error("Failed to execute code.");
-
-                const data = await res.json();
-
-                if (data.error) {
-                    term.style.color = "#f44336"; // Red for errors
-                    term.innerText = (data.output ? data.output + "\n" : "") + data.error;
-                } else {
-                    term.innerText = data.output || "(Code executed successfully with no output)";
-                }
-            } catch (err) {
-                term.style.color = "#f44336";
-                term.innerText = "Error interacting with backend: " + err.message;
-            } finally {
-                btn.innerText = "▶ Run Code";
-                btn.style.backgroundColor = "#4ec9b0";
-            }
         }
+    }, 5000);
 
-        // Auto-refresh the page every 5 seconds to see new generations dynamically -> only if not editing
-        setInterval(() => {
-            if (!isEditing && document.getElementById('editorContainer').style.display === 'none') {
-                // Only refresh the history box silently using a background fetch to avoid ugly full reloads
-                fetch(window.location.href)
-                    .then(r => r.text())
-                    .then(html => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        const newHistory = doc.getElementById('historyCard').innerHTML;
-                        document.getElementById('historyCard').innerHTML = newHistory;
-                    });
-            }
-        }, 5000);
-    </script>
-</body>
+    // Global state for context menu flow
+    let highlightedCodeForExplanation = "";
 
-</html>
+    // Function attached to context menu action
+    function onExplainCodeContext(ed) {
+        const selection = ed.getSelection();
+        const selectedText = ed.getModel().getValueInRange(selection);
+        if (!selectedText || !selectedText.trim()) return;
+
+        highlightedCodeForExplanation = selectedText;
+
+        // Show modal
+        const modal = document.getElementById('explainModal');
+        const input = document.getElementById('explainUserInput');
+        input.value = ""; // Reset
+        modal.classList.add('show');
+        input.focus();
+    }
+
+    // Attached to the Modal Cancel button
+    function closeExplainModal() {
+        document.getElementById('explainModal').classList.remove('show');
+        highlightedCodeForExplanation = "";
+    }
+
+    // Attached to the Modal Ask AI button
+    async function submitExplainRequest() {
+        const userInput = document.getElementById('explainUserInput').value;
+        const codeToExplain = highlightedCodeForExplanation;
+        closeExplainModal();
+
+        if (!codeToExplain) return;
+
+        // Show loading in AI sidebar
+        const explanationContent = document.getElementById('aiExplanationContent');
+        const loadingIndicator = document.getElementById('aiLoadingIndicator');
+
+        explanationContent.style.display = 'none';
+        loadingIndicator.style.display = 'flex';
+
+        try {
+            const res = await fetch('/api/explain-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: codeToExplain,
+                    user_input: userInput || null
+                })
+            });
+
+            if (!res.ok) throw new Error("Failed to reach explain endpoint.");
+
+            const data = await res.json();
+
+            // Display the markdown natively in the sidebar using marked.js if available, or just raw text
+            explanationContent.style.display = 'block';
+            // Because we aren't using a markdown library yet, just simple text rendering with preserves formatting
+            explanationContent.innerText = data.explanation;
+            explanationContent.style.whiteSpace = 'pre-wrap';
+
+        } catch (err) {
+            console.error(err);
+            explanationContent.style.display = 'block';
+            explanationContent.innerText = "Error fetching explanation: " + err.message;
+            explanationContent.style.color = "var(--danger)";
+        } finally {
+            loadingIndicator.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

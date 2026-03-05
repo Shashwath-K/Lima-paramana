@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ghost-Typer{% endblock %}</title>
+    <!-- Core Application CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components/cards.css">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <header class="app-header">
+        <h1 class="app-title">Ghost-Typer</h1>
+    </header>
+
+    <div class="layout-body">
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <aside class="sidebar-right">
+            <div class="similarity-widget">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Open-Source Match</h3>
+                <div class="card" style="padding: 1rem;">
+                    <p
+                        style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Snippet Similarity</p>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">Analyzing...</span>
+                        <span style="font-size: 0.875rem; font-weight: bold; color: var(--success);">85%</span>
+                    </div>
+                    <div class="similarity-score-bar">
+                        <div class="similarity-score-fill" style="width: 85%;"></div>
+                    </div>
+                    <p style="font-size: 0.75rem; margin-top: 1rem; margin-bottom: 0.5rem;"><strong>Source:</strong>
+                        github.com/pallets/flask</p>
+                    <a href="#" style="font-size: 0.75rem;">View Diff Details</a>
+                </div>
+            </div>
+
+            <div class="language-widget" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Programming Language</h3>
+                <div class="card" style="padding: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;" id="uiLanguageIcon">🐍</span>
+                        <div>
+                            <p style="margin: 0; font-weight: 600; color: var(--text-primary);" id="uiLanguageName">
+                                Python</p>
+                            <p style="margin: 0; font-size: 0.75rem; color: var(--text-secondary);"
+                                id="uiLanguageDetails">Auto-detected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="concepts-widget" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Concepts Used</h3>
+                <div class="card" style="padding: 1rem;">
+                    <div id="uiConceptsContainer" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        <span class="status"
+                            style="background-color: var(--bg-tertiary); color: var(--text-primary); font-size: 0.75rem;">File
+                            I/O</span>
+                        <span class="status"
+                            style="background-color: var(--bg-tertiary); color: var(--text-primary); font-size: 0.75rem;">Async/Await</span>
+                        <span class="status"
+                            style="background-color: var(--bg-tertiary); color: var(--text-primary); font-size: 0.75rem;">Classes</span>
+                    </div>
+                </div>
+            </div>
+
+            {% block sidebar_extra %}{% endblock %}
+
+            <div class="ai-assistant-widget" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">AI Assistant</h3>
+                <div class="card" style="padding: 1rem; position: relative;">
+                    <div id="aiExplanationContent"
+                        style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
+                        Highlight code in the editor, right-click, and select "Explain Code..." to see AI analysis here.
+                    </div>
+                    <div id="aiLoadingIndicator"
+                        style="display: none; align-items: center; gap: 0.5rem; margin-top: 1rem; color: var(--accent-primary); font-size: 0.875rem; font-weight: 500;">
+                        <svg class="spinner" viewBox="0 0 50 50" style="width: 20px; height: 20px;">
+                            <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                        </svg>
+                        Analyzing code...
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Explain Code Modal -->
+    <div id="explainModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 1rem;">Explain Code</h3>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem;">What do you want to
+                know about this snippet? Leave blank for a general explanation.</p>
+            <input type="text" id="explainUserInput" class="modal-input" placeholder="e.g., How does this loop work?"
+                autocomplete="off">
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                <button onclick="closeExplainModal()" class="btn-secondary">Cancel</button>
+                <button onclick="submitExplainRequest()" class="btn-primary">Ask AI</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        Ghost-Typing Auto-Documenter &copy; 2026. Local Engine: Ollama.
+    </footer>
+
+    <!-- Page Specific Scripts -->
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>
