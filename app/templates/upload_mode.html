@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost-Typer Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #569cd6;
+        }
+
+        .card {
+            background-color: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #3e3e42;
+            padding: 15px 0;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .timestamp {
+            color: #4ec9b0;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        pre {
+            background-color: #1e1e1e;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #333;
+        }
+
+        code.code-block {
+            color: #9cdcfe;
+        }
+
+        code.doc-block {
+            color: #ce9178;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            background-color: #007acc;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" style="display: inline-block; margin-bottom: 20px; color: #569cd6; text-decoration: none;">&larr;
+            Back to Home</a>
+        <h1>Ghost-Typing Auto-Documenter</h1>
+        <div class="card">
+            <div class="status" id="serverStatus">● Server Online</div>
+            <p>Waiting for hotkey triggers from the client listener (Ctrl+Alt+D)...</p>
+
+            <hr style="border-color: #3e3e42; margin: 20px 0;">
+            <h3>Manual Upload & Analyze</h3>
+            <p>Upload a Python file to view it in the IDE and automatically generate docstrings line-by-line.</p>
+            <input type="file" id="fileInput" accept=".py" style="display: none;">
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="document.getElementById('fileInput').click()"
+                    style="padding: 10px 15px; background: #007acc; border: none; color: white; border-radius: 4px; cursor: pointer; font-size: 14px;">Upload
+                    Python File</button>
+                <button id="runCodeBtn" onclick="runCode()"
+                    style="padding: 10px 15px; background: #4ec9b0; border: none; color: #1e1e1e; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; display: none;">▶
+                    Run Code</button>
+            </div>
+
+            <div id="editorContainer"
+                style="height: 500px; width: 100%; border: 1px solid #3e3e42; margin-top: 20px; display: none;"></div>
+
+            <div id="terminalContainer" style="display: none; margin-top: 20px;">
+                <h3 style="margin-top: 0; color: #d7ba7d;">Terminal Output</h3>
+                <pre id="terminalOutput"
+                    style="background-color: #1e1e1e; padding: 15px; border: 1px solid #333; border-radius: 4px; min-height: 100px; max-height: 250px; overflow-y: auto; color: #d4d4d4; font-family: 'Courier New', Courier, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word;">Ready...</pre>
+            </div>
+        </div>
+
+        <h2>Recent Generations via Hotkey</h2>
+        <div class="card" id="historyCard">
+            {% if history %}
+            {% for entry in history %}
+            <div class="log-entry">
+                <div class="timestamp">{{ entry.timestamp }}</div>
+                <p><strong>Code Snippet:</strong></p>
+                <pre><code class="code-block">{{ entry.code }}</code></pre>
+                <p><strong>Generated Docstring:</strong></p>
+                <pre><code class="doc-block">{{ entry.docstring }}</code></pre>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>No documentation generated yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Load Monaco Editor via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+    <script>
+        // Setup Monaco
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
+        let editor;
+        let isEditing = false;
+
+        require(['vs/editor/editor.main'], function () {
+            editor = monaco.editor.create(document.getElementById('editorContainer'), {
+                value: '',
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                scrollBeyondLastLine: false
+            });
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const text = await file.text();
+            document.getElementById('editorContainer').style.display = 'block';
+            document.getElementById('runCodeBtn').style.display = 'block';
+            document.getElementById('terminalContainer').style.display = 'block';
+            if (editor) editor.setValue(text);
+
+            isEditing = true; // Stop auto-refresh
+            document.getElementById('serverStatus').innerText = "● Analyzing File";
+            document.getElementById('serverStatus').style.backgroundColor = "#d7ba7d"; // Yellowish
+
+            // Short timeout to allow UI to render the editor
+            setTimeout(async () => {
+                if (confirm("Generate comments for the code?")) {
+                    await generateCommentsForCode(text);
+                } else {
+                    document.getElementById('serverStatus').innerText = "● Server Online";
+                    document.getElementById('serverStatus').style.backgroundColor = "#007acc";
+                }
+            }, 500);
+        });
+
+        async function generateCommentsForCode(codeText) {
+            try {
+                // 1. Extract symbols
+                const res = await fetch('/api/extract-symbols', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: editor.getValue() })
+                });
+
+                if (!res.ok) throw new Error("Failed to extract symbols.");
+
+                const data = await res.json();
+                const items = data.items;
+
+                if (!items || items.length === 0) {
+                    alert("No classes or functions found to comment (or they already have docstrings).");
+                    document.getElementById('serverStatus').innerText = "● Server Online";
+                    document.getElementById('serverStatus').style.backgroundColor = "#007acc";
+                    return;
+                }
+
+                // 2. Loop through and fetch docstrings
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+
+                    document.getElementById('serverStatus').innerText = `● Generating ${i + 1}/${items.length}: ${item.name}...`;
+
+                    const genRes = await fetch('/api/generate-comment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            code_snippet: item.snippet,
+                            indentation: item.indentation,
+                            is_inline: item.is_inline || false
+                        })
+                    });
+
+                    if (genRes.ok) {
+                        const genData = await genRes.json();
+
+                        // 3. Insert into editor
+                        editor.executeEdits("ai-doc-generator", [{
+                            range: new monaco.Range(item.insert_line, 1, item.insert_line, 1),
+                            text: genData.docstring,
+                            forceMoveMarkers: true
+                        }]);
+
+                        // Reveal the inserted docstring
+                        editor.revealLineInCenter(item.insert_line);
+
+                        // Wait a bit to simulate "ghost typing" reading pace
+                        await new Promise(r => setTimeout(r, 600));
+                    }
+                }
+
+                document.getElementById('serverStatus').innerText = "● Generation Complete";
+                document.getElementById('serverStatus').style.backgroundColor = "#4ec9b0"; // Greenish
+
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred during generation: " + err.message);
+                document.getElementById('serverStatus').innerText = "● Error";
+                document.getElementById('serverStatus').style.backgroundColor = "#f44336";
+            }
+        }
+
+        async function runCode() {
+            const btn = document.getElementById('runCodeBtn');
+            const term = document.getElementById('terminalOutput');
+            const currentCode = editor.getValue();
+
+            if (!currentCode.trim()) {
+                term.innerText = "No code to run.";
+                return;
+            }
+
+            btn.innerText = "Running...";
+            btn.style.backgroundColor = "#d7ba7d";
+            term.innerText = "Executing...\n";
+            term.style.color = "#d4d4d4";
+
+            try {
+                const res = await fetch('/api/run-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentCode })
+                });
+
+                if (!res.ok) throw new Error("Failed to execute code.");
+
+                const data = await res.json();
+
+                if (data.error) {
+                    term.style.color = "#f44336"; // Red for errors
+                    term.innerText = (data.output ? data.output + "\n" : "") + data.error;
+                } else {
+                    term.innerText = data.output || "(Code executed successfully with no output)";
+                }
+            } catch (err) {
+                term.style.color = "#f44336";
+                term.innerText = "Error interacting with backend: " + err.message;
+            } finally {
+                btn.innerText = "▶ Run Code";
+                btn.style.backgroundColor = "#4ec9b0";
+            }
+        }
+
+        // Auto-refresh the page every 5 seconds to see new generations dynamically -> only if not editing
+        setInterval(() => {
+            if (!isEditing && document.getElementById('editorContainer').style.display === 'none') {
+                // Only refresh the history box silently using a background fetch to avoid ugly full reloads
+                fetch(window.location.href)
+                    .then(r => r.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newHistory = doc.getElementById('historyCard').innerHTML;
+                        document.getElementById('historyCard').innerHTML = newHistory;
+                    });
+            }
+        }, 5000);
+    </script>
+</body>
+
+</html>

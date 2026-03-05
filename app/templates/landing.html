@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost-Typer Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 800px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #569cd6;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            font-size: 1.2em;
+            color: #9cdcfe;
+            margin-bottom: 40px;
+        }
+
+        .card-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background-color: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 30px 20px;
+            width: 300px;
+            text-align: left;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border-color: #569cd6;
+        }
+
+        .card h2 {
+            color: #4ec9b0;
+            margin-top: 0;
+        }
+
+        .card p {
+            color: #d4d4d4;
+            line-height: 1.5;
+        }
+
+        .icon {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #d7ba7d;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Ghost-Typing Auto-Documenter</h1>
+        <p class="subtitle">Select your preferred documentation generation mode</p>
+
+        <div class="card-container">
+            <a href="/upload-mode" class="card">
+                <div class="icon">📁</div>
+                <h2>Upload & Analyze</h2>
+                <p>Upload existing Python files and have the system scan and automatically generate comments
+                    line-by-line.</p>
+            </a>
+
+            <a href="/live-mode" class="card">
+                <div class="icon">💻</div>
+                <h2>Live Editor</h2>
+                <p>Type your code directly into the browser editor. Watch docstrings magically generate as you pause
+                    typing!</p>
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

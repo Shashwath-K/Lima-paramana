@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Editor - Ghost-Typer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #569cd6;
+        }
+
+        .card {
+            background-color: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            background-color: #007acc;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" style="display: inline-block; margin-bottom: 20px; color: #569cd6; text-decoration: none;">&larr;
+            Back to Home</a>
+        <h1>Live Generation Editor</h1>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div class="status" id="serverStatus" style="margin-bottom: 0;">● Editor Ready</div>
+                <button id="runCodeBtn" onclick="runCode()"
+                    style="padding: 8px 15px; background: #4ec9b0; border: none; color: #1e1e1e; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">▶
+                    Run Code</button>
+            </div>
+            <p style="margin-top: 0;">Type your Python code below. When you pause typing, the system will automatically
+                analyze what you wrote
+                and generate docstrings for any new functions or classes.</p>
+            <div id="editorContainer" style="height: 500px; width: 100%; border: 1px solid #3e3e42; margin-top: 10px;">
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0; color: #d7ba7d;">Terminal Output</h3>
+            <pre id="terminalOutput"
+                style="background-color: #1e1e1e; padding: 15px; border: 1px solid #333; border-radius: 4px; min-height: 100px; max-height: 250px; overflow-y: auto; color: #d4d4d4; font-family: 'Courier New', Courier, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word;">Ready...</pre>
+        </div>
+    </div>
+
+    <!-- Load Monaco Editor via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+    <script>
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
+        let editor;
+        let typingTimer;
+        const doneTypingInterval = 2000;  // time in ms (2 seconds)
+        let isGenerating = false;
+
+        require(['vs/editor/editor.main'], function () {
+            editor = monaco.editor.create(document.getElementById('editorContainer'), {
+                value: '# Type a python function here, e.g.\n# def process_data(data):\n#     pass\n\n',
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                scrollBeyondLastLine: false
+            });
+
+            // Listen for changes
+            editor.onDidChangeModelContent((event) => {
+                // Ignore events if we are the ones inserting the docstring
+                if (isGenerating) return;
+
+                clearTimeout(typingTimer);
+
+                // Set status to typing
+                document.getElementById('serverStatus').innerText = "● Typing...";
+                document.getElementById('serverStatus').style.backgroundColor = "#007acc";
+
+                // Start the debounce timer
+                typingTimer = setTimeout(doneTyping, doneTypingInterval);
+            });
+        });
+
+        async function doneTyping() {
+            const currentCode = editor.getValue();
+            if (!currentCode.trim()) {
+                document.getElementById('serverStatus').innerText = "● Editor Ready";
+                return;
+            }
+
+            document.getElementById('serverStatus').innerText = "● Analyzing...";
+            document.getElementById('serverStatus').style.backgroundColor = "#d7ba7d";
+
+            try {
+                // 1. Extract symbols
+                const res = await fetch('/api/extract-symbols', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentCode })
+                });
+
+                if (!res.ok) throw new Error("Failed to extract symbols.");
+
+                const data = await res.json();
+                const items = data.items;
+
+                // If it found items without docstrings, let's generate!
+                if (items && items.length > 0) {
+                    isGenerating = true; // Lock the onDidChange listener
+
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+
+                        document.getElementById('serverStatus').innerText = `● Generating: ${item.name}...`;
+
+                        const genRes = await fetch('/api/generate-comment', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                code_snippet: item.snippet,
+                                indentation: item.indentation,
+                                is_inline: item.is_inline || false
+                            })
+                        });
+
+                        if (genRes.ok) {
+                            const genData = await genRes.json();
+
+                            // Insert into editor
+                            editor.executeEdits("ai-doc-generator", [{
+                                range: new monaco.Range(item.insert_line, 1, item.insert_line, 1),
+                                text: genData.docstring,
+                                forceMoveMarkers: true
+                            }]);
+
+                            // Let the user see it
+                            editor.revealLineInCenter(item.insert_line);
+                            await new Promise(r => setTimeout(r, 600)); // typing delay buffer
+                        }
+                    }
+
+                    isGenerating = false; // Unlock
+                    document.getElementById('serverStatus').innerText = "● Generation Complete";
+                    document.getElementById('serverStatus').style.backgroundColor = "#4ec9b0";
+                } else {
+                    // Nothing new to generate
+                    document.getElementById('serverStatus').innerText = "● Editor Ready";
+                    document.getElementById('serverStatus').style.backgroundColor = "#007acc";
+                }
+            } catch (err) {
+                console.error(err);
+                isGenerating = false;
+                document.getElementById('serverStatus').innerText = "● Error Analyzing";
+                document.getElementById('serverStatus').style.backgroundColor = "#f44336";
+            }
+        }
+
+        async function runCode() {
+            const btn = document.getElementById('runCodeBtn');
+            const term = document.getElementById('terminalOutput');
+            const currentCode = editor.getValue();
+
+            if (!currentCode.trim()) {
+                term.innerText = "No code to run.";
+                return;
+            }
+
+            btn.innerText = "Running...";
+            btn.style.backgroundColor = "#d7ba7d";
+            term.innerText = "Executing...\n";
+            term.style.color = "#d4d4d4";
+
+            try {
+                const res = await fetch('/api/run-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentCode })
+                });
+
+                if (!res.ok) throw new Error("Failed to execute code.");
+
+                const data = await res.json();
+
+                if (data.error) {
+                    term.style.color = "#f44336"; // Red for errors
+                    term.innerText = (data.output ? data.output + "\n" : "") + data.error;
+                } else {
+                    term.innerText = data.output || "(Code executed successfully with no output)";
+                }
+            } catch (err) {
+                term.style.color = "#f44336";
+                term.innerText = "Error interacting with backend: " + err.message;
+            } finally {
+                btn.innerText = "▶ Run Code";
+                btn.style.backgroundColor = "#4ec9b0";
+            }
+        }
+    </script>
+</body>
+
+</html>
