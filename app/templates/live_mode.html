@@ -277,11 +277,10 @@
 
             const data = await res.json();
 
-            // Display the markdown natively in the sidebar using marked.js if available, or just raw text
+            // Display the markdown natively in the sidebar using marked.js
             explanationContent.style.display = 'block';
-            // Because we aren't using a markdown library yet, just simple text rendering with preserves formatting
-            explanationContent.innerText = data.explanation;
-            explanationContent.style.whiteSpace = 'pre-wrap';
+            explanationContent.innerHTML = marked.parse(data.explanation);
+            explanationContent.style.whiteSpace = 'normal';
 
         } catch (err) {
             console.error(err);
