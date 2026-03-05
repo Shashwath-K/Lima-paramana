@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel
-from typing import List, Dict, Any
-from app.services.llm_service import generate_docstring
+from typing import List, Dict, Any, Optional
+from app.services.llm_service import generate_docstring, explain_code
 from app.services.rpa_service import type_docstring
 from app.services.parser_service import extract_functions_and_classes
 from datetime import datetime
@@ -47,19 +47,41 @@ async def api_generate_doc(req: GenerationRequest, background_tasks: BackgroundT
 
 class ExtractRequest(BaseModel):
     code: str
+    language: str = "python"
+    doc_level: str = "maximum"
 
 @router.post("/extract-symbols")
 async def api_extract_symbols(req: ExtractRequest):
     """
-    Parses full python code and returns functions/classes without docstrings.
+    Parses code and returns items needing documentation.
+    For Python, uses AST to find specific functions/classes.
+    For other languages (C++, JS, IPYNB), treating the entire block as one item
+    to let the LLM handle the commenting directly.
     """
-    items = extract_functions_and_classes(req.code)
+    if req.language.lower() == "python":
+        items = extract_functions_and_classes(req.code, req.doc_level)
+    else:
+        # For non-python, we pass the entire code block to the LLM
+        # rather than writing a heavy parser for every language
+        items = [{
+            "name": f"{req.language.upper()} File",
+            "type": "RawBlock",
+            "start_line": 1,
+            "insert_line": 1,
+            "indentation": "",
+            "snippet": req.code,
+            "is_inline": False,
+            "full_replace": True # flag to tell frontend to replace everything
+        }]
     return {"items": items}
 
 class GenerateCommentRequest(BaseModel):
     code_snippet: str
     indentation: str
     is_inline: bool = False
+    language: str = "python"
+    doc_level: str = "maximum"
+    full_replace: bool = False
 
 class GenerateCommentResponse(BaseModel):
     docstring: str
@@ -68,21 +90,32 @@ class GenerateCommentResponse(BaseModel):
 async def api_generate_comment(req: GenerateCommentRequest):
     """
     Generates a docstring for a specific code chunk and formats it with indentation.
+    If full_replace is True, returns the generated commented code in its entirety.
     """
     try:
-        raw_docstring = await generate_docstring(req.code_snippet, is_inline=req.is_inline)
+        raw_docstring = await generate_docstring(
+            req.code_snippet, 
+            is_inline=req.is_inline, 
+            language=req.language.lower(), 
+            doc_level=req.doc_level
+        )
         
-        # Format with quotes and indentation
-        lines = raw_docstring.split('\n')
-        indented_lines = [req.indentation + line if line.strip() else "" for line in lines]
-        
-        if req.is_inline:
-            # Format as a single-line comment (e.g. # This is a comment)
-            # Take just the first line if it somehow generated more
-            comment_text = indented_lines[0].strip()
-            formatted_docstring = f'{req.indentation}# {comment_text}\n'
+        # If the LLM returned the fully commented code block (for non-Python)
+        if hasattr(req, 'full_replace') and getattr(req, 'full_replace', False):
+            # For this scenario, raw_docstring IS the new code block
+            formatted_docstring = raw_docstring
+            
         else:
-            formatted_docstring = f'{req.indentation}"""\n' + '\n'.join(indented_lines) + f'\n{req.indentation}"""\n'
+            # Python AST snippet logic
+            lines = raw_docstring.split('\n')
+            indented_lines = [req.indentation + line if line.strip() else "" for line in lines]
+            
+            if req.is_inline:
+                # Format as a single-line python comment
+                comment_text = indented_lines[0].strip()
+                formatted_docstring = f'{req.indentation}# {comment_text}\n'
+            else:
+                formatted_docstring = f'{req.indentation}"""\n' + '\n'.join(indented_lines) + f'\n{req.indentation}"""\n'
         
         # Record history for preview
         history.append({
@@ -121,3 +154,21 @@ async def api_run_code(req: RunRequest):
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
+
+class ExplainRequest(BaseModel):
+    code: str
+    user_input: Optional[str] = None
+
+class ExplainResponse(BaseModel):
+    explanation: str
+
+@router.post("/explain-code", response_model=ExplainResponse)
+async def api_explain_code(req: ExplainRequest):
+    """
+    Explains a chunk of code via the LLM context menu feature.
+    """
+    try:
+        explanation = await explain_code(req.code, req.user_input)
+        return ExplainResponse(explanation=explanation)
+    except Exception as e:
+        return ExplainResponse(explanation=f"Error generating explanation: {str(e)}")
