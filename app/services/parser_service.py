@@ -1,11 +1,11 @@
 import ast
 from typing import List, Dict, Any
 
-def extract_functions_and_classes(code: str) -> List[Dict[str, Any]]:
+def extract_functions_and_classes(code: str, doc_level: str = "maximum") -> List[Dict[str, Any]]:
     """
     Parses Python code and extracts functions and classes, 
     returning their structure for docstring generation.
-    If no functions or classes are found, returns a module-level item to document the whole script.
+    Supports granular inline comment extraction based on doc_level.
     """
     try:
         tree = ast.parse(code)
@@ -19,7 +19,17 @@ def extract_functions_and_classes(code: str) -> List[Dict[str, Any]]:
     module_has_docstring = ast.get_docstring(tree) is not None
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        is_class_func = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        is_medium_node = False
+        is_max_node = False
+        
+        if doc_level in ["medium", "maximum"]:
+            is_medium_node = isinstance(node, (ast.Assign, ast.AnnAssign, ast.If, ast.For, ast.While, ast.With, ast.AsyncFor, ast.AsyncWith))
+            
+        if doc_level == "maximum":
+            is_max_node = isinstance(node, (ast.Expr, ast.Import, ast.ImportFrom, ast.Return, ast.Yield, ast.YieldFrom, ast.Assert, ast.Raise))
+
+        if is_class_func:
             # Check if it already has a docstring
             has_docstring = ast.get_docstring(node) is not None
             
@@ -60,7 +70,7 @@ def extract_functions_and_classes(code: str) -> List[Dict[str, Any]]:
                 "is_inline": False
             })
             
-        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.If, ast.For, ast.While, ast.With, ast.AsyncFor, ast.AsyncWith)):
+        elif is_medium_node or is_max_node:
             # Only consider top-level nodes or significant nested blocks to avoid massive spam
             # We determine depth based on indentation
             start_line = node.lineno
@@ -89,6 +99,14 @@ def extract_functions_and_classes(code: str) -> List[Dict[str, Any]]:
                     name = f"Variable '{', '.join(var_names)}'"
                 else:
                     name = "Assignment"
+            elif isinstance(node, ast.Expr):
+                # E.g. time.sleep(), pyautogui.moveTo() - try to extract the main call name if possible
+                if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute):
+                    name = f"Call to '{node.value.func.attr}'"
+                elif isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name):
+                    name = f"Call to '{node.value.func.id}'"
+                else:
+                    name = "Expression Statement"
             
             items.append({
                 "name": name,
