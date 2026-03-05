@@ -8,14 +8,15 @@
             <div class="card widget-card">
                 <p class="similarity-title">Snippet Similarity</p>
                 <div class="similarity-status">
-                    <span class="similarity-label">Analyzing...</span>
-                    <span class="similarity-value">85%</span>
+                    <span class="similarity-label" id="uiSimilarityLabel">Analyzing...</span>
+                    <span class="similarity-value" id="uiSimilarityScore">0%</span>
                 </div>
                 <div class="similarity-score-bar">
-                    <div class="similarity-score-fill" style="width: 85%;"></div>
+                    <div class="similarity-score-fill" id="uiSimilarityBar" style="width: 0%;"></div>
                 </div>
-                <p class="similarity-source"><strong>Source:</strong> github.com/pallets/flask</p>
-                <a href="#" class="similarity-link">View Diff Details</a>
+                <p class="similarity-source"><strong>Source:</strong> <span id="uiSimilaritySource">Waiting for
+                        input...</span></p>
+                <a href="#" class="similarity-link" style="display: none;" id="uiSimilarityLink">View Diff Details</a>
             </div>
         </div>
 
@@ -36,9 +37,8 @@
             <h3 class="widget-title">Concepts Used</h3>
             <div class="card widget-card">
                 <div class="concepts-container" id="uiConceptsContainer">
-                    <span class="concept-tag">File I/O</span>
-                    <span class="concept-tag">Async/Await</span>
-                    <span class="concept-tag">Classes</span>
+                    <span class="similarity-label" id="uiConceptLoading" style="display: none;">Analyzing code...</span>
+                    <!-- Tags injected here -->
                 </div>
             </div>
         </div>

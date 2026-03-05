@@ -190,6 +190,11 @@
                     }
                 }
             }
+
+            // Trigger dynamic sidebar metrics based on the current context
+            syncSidebarConcepts(currentCode);
+            syncSidebarSimilarity(currentCode);
+
             document.getElementById('serverStatus').innerText = "Generation Complete";
             document.getElementById('serverStatus').style.backgroundColor = "var(--success)";
         } catch (err) {
@@ -197,6 +202,83 @@
             alert("An error occurred during generation: " + err.message);
             document.getElementById('serverStatus').innerText = "Error";
             document.getElementById('serverStatus').style.backgroundColor = "var(--danger)";
+        }
+    }
+
+    async function syncSidebarConcepts(code) {
+        if (!code || !code.trim()) return;
+        const container = document.getElementById('uiConceptsContainer');
+        const loader = document.getElementById('uiConceptLoading');
+
+        loader.style.display = 'block';
+        container.innerHTML = '';
+        container.appendChild(loader);
+
+        try {
+            const res = await fetch('/api/analyze-concepts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                loader.style.display = 'none';
+                data.concepts.forEach(concept => {
+                    const span = document.createElement('span');
+                    span.className = 'concept-tag';
+                    span.innerText = concept;
+                    container.appendChild(span);
+                });
+            } else {
+                loader.innerText = "Fetch error";
+            }
+        } catch (err) {
+            console.error("Failed to analyze concepts", err);
+            loader.innerText = "Analysis Failed";
+        }
+    }
+
+    async function syncSidebarSimilarity(code) {
+        if (!code || !code.trim()) return;
+
+        const labelText = document.getElementById('uiSimilarityLabel');
+        const scoreText = document.getElementById('uiSimilarityScore');
+        const barFill = document.getElementById('uiSimilarityBar');
+        const sourceText = document.getElementById('uiSimilaritySource');
+        const linkElem = document.getElementById('uiSimilarityLink');
+
+        labelText.innerText = "Analyzing...";
+
+        try {
+            const res = await fetch('/api/analyze-similarity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                labelText.innerText = "Snippet Similarity";
+                scoreText.innerText = data.score + "%";
+                barFill.style.width = data.score + "%";
+                sourceText.innerText = data.source;
+                linkElem.style.display = 'inline';
+
+                // Adjust color based on score severity
+                if (data.score > 70) {
+                    scoreText.style.color = "var(--success)";
+                    barFill.style.backgroundColor = "var(--success)";
+                } else if (data.score > 40) {
+                    scoreText.style.color = "var(--warning)";
+                    barFill.style.backgroundColor = "var(--warning)";
+                } else {
+                    scoreText.style.color = "var(--danger)";
+                    barFill.style.backgroundColor = "var(--danger)";
+                }
+            }
+        } catch (err) {
+            console.error("Failed to analyze similarity", err);
+            labelText.innerText = "Analysis Failed";
         }
     }
 
