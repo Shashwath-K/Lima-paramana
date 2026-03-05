@@ -3,43 +3,77 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-async def generate_docstring(code_snippet: str, is_inline: bool = False) -> str:
+async def generate_docstring(code_snippet: str, is_inline: bool = False, language: str = "python", doc_level: str = "maximum") -> str:
     """
     Calls the LLM to generate a comment or docstring for the provided code.
-    If is_inline is True, generates a single-line `#` comment.
-    Otherwise, generates a concise PEP 257 docstring without repeating the code.
-    Returns only the raw text.
+    Adjusts behavior based on the target programming language and doc_level (min/med/max).
     """
-    if is_inline:
+    
+    # Configure Doc Level Instructions for Docstrings
+    if doc_level == "minimum":
+        level_instruction = "Focus on a high-level summary of the class or function."
+    elif doc_level == "medium":
+        level_instruction = "Provide a slightly more detailed explanation of the logic."
+    else: # maximum
+        level_instruction = "Provide a highly detailed step-by-step explanation of the internal logic."
+
+    # Language Specific Overrides
+    if language != "python":
+        if doc_level == "minimum":
+            density = "Add a high-level block comment at the top, and ONLY comment class/function definitions."
+        elif doc_level == "medium":
+            density = "Add comments for functions, classes, and complex logic blocks or variable assignments."
+        else:
+            density = "Add short comments to almost every significant line to explain what it does step-by-step."
+            
+        # For non-python, we send the FULL block and expect the FULL block back properly commented
         prompt = f"""
-        You are an expert Python developer. I will provide you with a Python snippet (usually a variable assignment or conditional block).
-        Your task is to write a SINGLE, concise inline comment explaining WHY this code exists or its high-level purpose.
+        You are an expert developer. I will provide you with a raw snippet of {language.upper()} code.
+        Your task is to return the exact same code, but with comments added according to the requested density.
         
-        CRITICAL: 
-        1. DO NOT simply repeat what the code says. Explain its intent.
-        2. Respond ONLY with the comment text itself.
-        3. Keep it to one single short sentence.
-        4. DO NOT wrap the response in markdown code blocks.
-        5. DO NOT include the `#` character in your response, just the raw text.
+        Density Requested: {density}
         
-        Here is the code:
+        CRITICAL:
+        1. Use the correct comment syntax for {language.upper()} (e.g. `//` or `/*` for JS/C++, `#` for Bash/R, etc).
+        2. Respond ONLY with the newly commented code. Do not wrap it in markdown blockticks like ```js.
+        3. Do not change the original code logic, ONLY add comments.
+        
+        Code to comment:
         {code_snippet}
         """
     else:
-        prompt = f"""
-        You are an expert Python developer. I will provide you with a Python function or class.
-        Your task is to write a concise, PEP 257 compliant docstring for it.
-        
-        CRITICAL: 
-        1. DO NOT simply repeat the code logic line by line. Give a high-level summary of its purpose.
-        2. Keep the docstring extremely concise to avoid overcrowding the file.
-        3. Respond ONLY with the docstring text itself.
-        4. DO NOT wrap the response in markdown code blocks (e.g., ```python).
-        5. DO NOT include the \"\"\" quotes at the beginning or end of your response.
-        
-        Here is the code:
-        {code_snippet}
-        """
+        # Standard Python injection logic (snippet-based via AST)
+        if is_inline:
+            prompt = f"""
+            You are an expert Python developer. I will provide you with a Python snippet (usually a variable assignment or conditional block).
+            Your task is to write a SINGLE, concise inline comment explaining WHY this code exists or its high-level purpose.
+            
+            CRITICAL: 
+            1. DO NOT simply repeat what the code says. Explain its intent.
+            2. Respond ONLY with the comment text itself.
+            3. Keep it short.
+            4. DO NOT wrap the response in markdown code blocks.
+            5. DO NOT include the `#` character in your response, just the raw text.
+            
+            Here is the code:
+            {code_snippet}
+            """
+        else:
+            prompt = f"""
+            You are an expert Python developer. I will provide you with a Python function, class, or script.
+            Your task is to write a PEP 257 compliant docstring for it.
+            
+            Context Level: {level_instruction}
+            
+            CRITICAL: 
+            1. DO NOT regurgitate the code. Evaluate its intent based on the Context Level.
+            2. Respond ONLY with the docstring text itself.
+            3. DO NOT wrap the response in markdown code blocks (e.g., ```python).
+            4. DO NOT include the \"\"\" quotes at the beginning or end of your response, just the inner text.
+            
+            Here is the code:
+            {code_snippet}
+            """
     
     if settings.LLM_PROVIDER == "ollama":
         try:
@@ -70,3 +104,48 @@ async def generate_docstring(code_snippet: str, is_inline: bool = False) -> str:
     else:
         # Dummy implementation if not using local ollama
         return "This is a dummy PEP 257 compliant docstring generated because Ollama is not available or configured."
+
+async def explain_code(code_snippet: str, user_query: str = None) -> str:
+    """
+    Calls the LLM to explain the provided code snippet.
+    Optionally incorporates a user_query to focus the explanation.
+    """
+    if user_query:
+        prompt = f"""
+        You are an expert Python developer and teacher.
+        Explain the following code snippet. The user specifically asked: "{user_query}"
+        
+        Keep your explanation clear, concise, and formatted in markdown.
+        Do not write overly long essays.
+        
+        Code:
+        ```python
+        {code_snippet}
+        ```
+        """
+    else:
+        prompt = f"""
+        You are an expert Python developer and teacher.
+        Explain the purpose and functionality of the following code snippet concisely.
+        
+        Keep your explanation clear, concise, and formatted in markdown.
+        Do not write overly long essays.
+        
+        Code:
+        ```python
+        {code_snippet}
+        ```
+        """
+        
+    if settings.LLM_PROVIDER == "ollama":
+        try:
+            import ollama
+            response = ollama.chat(model=settings.OLLAMA_MODEL, messages=[
+                {'role': 'user', 'content': prompt}
+            ])
+            return response['message']['content'].strip()
+        except Exception as e:
+            logger.error(f"Error calling Ollama for explanation: {e}")
+            return f"Error generating explanation: {e}"
+    else:
+        return "This is a dummy explanation generated because Ollama is not available."
