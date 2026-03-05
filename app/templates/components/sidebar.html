@@ -1,0 +1,69 @@
+<aside class="sidebar-wrapper collapsed" id="sidebarWrapper">
+    <button class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Toggle Sidebar" title="Toggle Sidebar">
+        <span class="sidebar-toggle-icon">▶</span>
+    </button>
+    <div class="sidebar-right">
+        <div class="sidebar-widget similarity-widget">
+            <h3 class="widget-title">Open-Source Match</h3>
+            <div class="card widget-card">
+                <p class="similarity-title">Snippet Similarity</p>
+                <div class="similarity-status">
+                    <span class="similarity-label">Analyzing...</span>
+                    <span class="similarity-value">85%</span>
+                </div>
+                <div class="similarity-score-bar">
+                    <div class="similarity-score-fill" style="width: 85%;"></div>
+                </div>
+                <p class="similarity-source"><strong>Source:</strong> github.com/pallets/flask</p>
+                <a href="#" class="similarity-link">View Diff Details</a>
+            </div>
+        </div>
+
+        <div class="sidebar-widget language-widget">
+            <h3 class="widget-title">Programming Language</h3>
+            <div class="card widget-card">
+                <div class="language-content">
+                    <span class="language-icon" id="uiLanguageIcon">🐍</span>
+                    <div class="language-info">
+                        <p class="language-name" id="uiLanguageName">Python</p>
+                        <p class="language-details" id="uiLanguageDetails">Auto-detected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-widget concepts-widget">
+            <h3 class="widget-title">Concepts Used</h3>
+            <div class="card widget-card">
+                <div class="concepts-container" id="uiConceptsContainer">
+                    <span class="concept-tag">File I/O</span>
+                    <span class="concept-tag">Async/Await</span>
+                    <span class="concept-tag">Classes</span>
+                </div>
+            </div>
+        </div>
+
+        {% block sidebar_extra %}{% endblock %}
+
+        <div class="sidebar-widget ai-assistant-widget">
+            <h3 class="widget-title">AI Assistant</h3>
+            <div class="card widget-card assistant-card">
+                <div id="aiExplanationContent" class="assistant-content">
+                    Highlight code in the editor, right-click, and select "Explain Code..." to see AI analysis here.
+                </div>
+                <div id="aiLoadingIndicator" class="assistant-loading">
+                    <svg class="spinner" viewBox="0 0 50 50">
+                        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                    </svg>
+                    Analyzing code...
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<script>
+    document.getElementById('sidebarToggleBtn').addEventListener('click', function () {
+        document.getElementById('sidebarWrapper').classList.toggle('collapsed');
+    });
+</script>
