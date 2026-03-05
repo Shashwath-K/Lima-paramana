@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from app.services.llm_service import generate_docstring, explain_code
 from app.services.rpa_service import type_docstring
 from app.services.parser_service import extract_functions_and_classes
+from app.services.sidebar_service import extract_concepts, analyze_similarity
 from datetime import datetime
 import subprocess
 import tempfile
@@ -172,3 +173,28 @@ async def api_explain_code(req: ExplainRequest):
         return ExplainResponse(explanation=explanation)
     except Exception as e:
         return ExplainResponse(explanation=f"Error generating explanation: {str(e)}")
+
+class AnalysisRequest(BaseModel):
+    code: str
+
+@router.post("/analyze-concepts", response_model=Dict[str, Any])
+async def api_analyze_concepts(req: AnalysisRequest):
+    """
+    Extracts high-level programming concepts from the code snippet using the LLM heuristic engine.
+    """
+    if not req.code.strip():
+        return {"concepts": []}
+    
+    concepts = await extract_concepts(req.code)
+    return {"concepts": concepts}
+
+@router.post("/analyze-similarity", response_model=Dict[str, Any])
+async def api_analyze_similarity(req: AnalysisRequest):
+    """
+    Determines open-source heuristic similarity using the LLM heuristic engine.
+    """
+    if not req.code.strip():
+        return {"score": 0, "source": "Unknown"}
+    
+    result = await analyze_similarity(req.code)
+    return result
