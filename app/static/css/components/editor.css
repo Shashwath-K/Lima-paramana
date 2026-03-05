@@ -1,0 +1,121 @@
+/* app/static/css/components/editor.css */
+/* Editor Container Overrides */
+.editor-container {
+    height: 500px;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    /* Clips monaco edges cleanly */
+    margin-top: 1rem;
+    display: none;
+}
+
+.editor-container-visible {
+    display: block !important;
+}
+
+/* Terminal Console UI */
+.terminal-output {
+    background-color: #000000;
+    /* True black for terminal logic */
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-height: 100px;
+    max-height: 250px;
+    overflow-y: auto;
+    color: #e2e8f0;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.875rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.terminal-container {
+    display: none;
+    margin-top: 1.5rem;
+}
+
+/* Status Bubbles */
+.status {
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    /* Pill shape */
+    font-weight: 600;
+    font-size: 0.875rem;
+    background-color: var(--accent-primary);
+    color: white;
+    display: inline-block;
+    margin-bottom: 0;
+    transition: background-color 0.3s ease;
+}
+
+/* Action Buttons */
+.btn-primary {
+    padding: 0.625rem 1.25rem;
+    background-color: var(--accent-primary);
+    border: none;
+    color: white;
+    border-radius: 9999px;
+    /* Pill shape */
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+    transform: scale(1.02);
+}
+
+.btn-run {
+    padding: 0.625rem 1.25rem;
+    background-color: var(--success);
+    border: none;
+    color: white;
+    border-radius: 9999px;
+    /* Pill shape */
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.875rem;
+    display: none;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.btn-run:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+.btn-run-visible {
+    display: block !important;
+}
+
+/* Code Blocks */
+pre {
+    background-color: #0f172a;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.875rem;
+}
+
+code.code-block {
+    color: #38bdf8;
+    /* Sky 400 */
+}
+
+code.doc-block {
+    color: #fdba74;
+    /* Orange 300 */
+}
