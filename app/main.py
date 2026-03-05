@@ -10,8 +10,11 @@ app = FastAPI(title=settings.PROJECT_NAME)
 
 app.include_router(api_router, prefix="/api")
 
-# Ensure templates directory exists for Jinja2
+# Ensure templates and static directories exist
 os.makedirs("app/templates", exist_ok=True)
+os.makedirs("app/static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/")
