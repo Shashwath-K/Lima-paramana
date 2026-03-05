@@ -1,0 +1,215 @@
+/* Sidebar Structural Styles */
+.sidebar-wrapper {
+    position: fixed;
+    top: 61px;
+    /* Starts right below header */
+    right: 0;
+    height: calc(100vh - 61px);
+    z-index: 90;
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-wrapper.collapsed {
+    transform: translateX(100%);
+}
+
+.sidebar-right {
+    width: 320px;
+    height: 100%;
+    background-color: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.3);
+    padding: 2rem;
+    overflow-y: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+
+    /* Hide scrollbar */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.sidebar-right::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 50%;
+    left: -40px;
+    /* Sticks out past the left border */
+    transform: translateY(-50%);
+    width: 40px;
+    height: 48px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 91;
+    transition: background-color 0.2s;
+    font-size: 1.25rem;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.sidebar-toggle-icon {
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.sidebar-wrapper.collapsed .sidebar-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Common Widget Styles */
+.sidebar-widget {
+    margin-top: 0;
+}
+
+.widget-title {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.widget-card {
+    padding: 1rem;
+}
+
+/* Similarity Widget */
+.similarity-title {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.similarity-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.similarity-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.similarity-value {
+    font-size: 0.875rem;
+    font-weight: bold;
+    color: var(--success);
+}
+
+.similarity-score-bar {
+    width: 100%;
+    height: 6px;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.similarity-score-fill {
+    height: 100%;
+    background-color: var(--success);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.similarity-source {
+    font-size: 0.75rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.similarity-link {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.similarity-link:hover {
+    text-decoration: underline;
+}
+
+/* Language Widget */
+.language-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.language-icon {
+    font-size: 1.5rem;
+}
+
+.language-name {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.language-details {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Concepts Widget */
+.concepts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.concept-tag {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+}
+
+/* AI Assistant Widget */
+.assistant-card {
+    position: relative;
+}
+
+.assistant-content {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.assistant-loading {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    color: var(--accent-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.assistant-loading .spinner {
+    width: 20px;
+    height: 20px;
+}
