@@ -59,7 +59,7 @@ body {
 
 .layout-body {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: 1fr;
     gap: 2rem;
     max-width: 1400px;
     margin: 0 auto;
@@ -74,12 +74,6 @@ body {
     /* Prevents grid blowout */
 }
 
-.sidebar-right {
-    position: sticky;
-    top: 100px;
-    height: calc(100vh - 140px);
-    overflow-y: auto;
-}
 
 .app-footer {
     border-top: 1px solid var(--border-color);
