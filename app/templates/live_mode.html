@@ -19,6 +19,18 @@
                 <option value="medium">Docs: Medium Density</option>
                 <option value="maximum" selected>Docs: Line-by-Line</option>
             </select>
+            <select id="langSelect" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;"
+                onchange="updateEditorLanguage()">
+                <option value="python" selected>Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="cpp">C / C++</option>
+                <option value="java">Java</option>
+                <option value="markdown">Markdown</option>
+                <option value="plaintext">Text</option>
+            </select>
+            <button id="pauseBtn" onclick="togglePause()" class="btn-run btn-run-visible"
+                style="background-color: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">Pause
+                Auto-Doc</button>
             <button id="runCodeBtn" onclick="runCode()" class="btn-run btn-run-visible">Run Code</button>
         </div>
     </div>
@@ -41,8 +53,28 @@
     require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' } });
     let editor;
     let typingTimer;
-    const doneTypingInterval = 2000;  // time in ms (2 seconds)
+    const doneTypingInterval = 15000;  // 15 seconds
     let isGenerating = false;
+    let isPaused = false;
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pauseBtn');
+        if (isPaused) {
+            btn.innerText = "Resume Auto-Doc";
+            btn.style.backgroundColor = "var(--warning)";
+            btn.style.color = "#000";
+            document.getElementById('serverStatus').innerText = "Auto-Doc Paused";
+            document.getElementById('serverStatus').style.backgroundColor = "var(--text-secondary)";
+            clearTimeout(typingTimer);
+        } else {
+            btn.innerText = "Pause Auto-Doc";
+            btn.style.backgroundColor = "var(--bg-card)";
+            btn.style.color = "var(--text-primary)";
+            document.getElementById('serverStatus').innerText = "Editor Ready";
+            document.getElementById('serverStatus').style.backgroundColor = "var(--accent-primary)";
+        }
+    }
 
     require(['vs/editor/editor.main'], function () {
         editor = monaco.editor.create(document.getElementById('editorContainer'), {
@@ -69,17 +101,22 @@
 
         // Listen for changes
         editor.onDidChangeModelContent((event) => {
-            // Ignore events if we are the ones inserting the docstring
-            if (isGenerating) return;
+            if (isGenerating || isPaused) return;
 
             clearTimeout(typingTimer);
+
+            // Fast fail: Did they explicitly press Enter to create a newline?
+            const isNewline = event.changes.some(change => change.text.includes('\n'));
 
             // Set status to typing
             document.getElementById('serverStatus').innerText = "Typing...";
             document.getElementById('serverStatus').style.backgroundColor = "var(--warning)";
 
-            // Start the debounce timer
-            typingTimer = setTimeout(doneTyping, doneTypingInterval);
+            // Only start the 15s generation countdown IF they completed a line
+            if (isNewline) {
+                document.getElementById('serverStatus').innerText = "Waiting 15s before generation...";
+                typingTimer = setTimeout(doneTyping, doneTypingInterval);
+            }
         });
     });
 
@@ -162,8 +199,17 @@
                 }
 
                 // Update Sidebar Language UI
-                document.getElementById('uiLanguageName').innerText = currentLang === 'python' ? 'Python' : currentLang.toUpperCase();
-                document.getElementById('uiLanguageIcon').innerText = currentLang === 'python' ? '🐍' : (currentLang === 'javascript' ? '🟨' : '💻');
+                let printLangName = currentLang;
+                let iconEmoji = '💻';
+                if (currentLang === 'python') { printLangName = 'Python'; iconEmoji = '🐍'; }
+                else if (currentLang === 'javascript') { printLangName = 'JavaScript'; iconEmoji = '🟨'; }
+                else if (currentLang === 'cpp' || currentLang === 'c') { printLangName = 'C / C++'; iconEmoji = '⚙️'; }
+                else if (currentLang === 'java') { printLangName = 'Java'; iconEmoji = '☕'; }
+                else if (currentLang === 'markdown') { printLangName = 'Markdown'; iconEmoji = '📝'; }
+                else if (currentLang === 'plaintext') { printLangName = 'Text'; iconEmoji = '📄'; }
+
+                document.getElementById('uiLanguageName').innerText = printLangName;
+                document.getElementById('uiLanguageIcon').innerText = iconEmoji;
 
                 isGenerating = false; // Unlock
                 document.getElementById('serverStatus').innerText = "Generation Complete";
@@ -302,6 +348,26 @@
         } finally {
             btn.innerText = "Run Code";
             btn.style.backgroundColor = "var(--success)";
+        }
+    }
+
+    function updateEditorLanguage() {
+        if (!editor) return;
+        const newLang = document.getElementById('langSelect').value;
+        monaco.editor.setModelLanguage(editor.getModel(), newLang);
+
+        // Setup initial placeholder text based on language if editor is empty or still has old placeholder
+        const currentCode = editor.getValue();
+        if (currentCode.trim() === '' || currentCode.includes('Type a python function here')) {
+            if (newLang === 'python') {
+                editor.setValue('# Type a python function here, e.g.\n# def process_data(data):\n#     pass\n\n');
+            } else if (newLang === 'javascript') {
+                editor.setValue('// Type a JS function here, e.g.\n// function processData(data) {\n// }\n\n');
+            } else if (newLang === 'cpp' || newLang === 'c' || newLang === 'java') {
+                editor.setValue('// Type your code here\n\n');
+            } else {
+                editor.setValue('');
+            }
         }
     }
 

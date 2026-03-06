@@ -15,7 +15,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <div class="status" id="serverStatus">Server Online</div>
     </div>
-    <p>Waiting for hotkey triggers from the client listener (Ctrl+Alt+D), or upload a Python file directly below.</p>
+    <p>Waiting for hotkey triggers from the client listener (Ctrl+Alt+D), or upload a supported file directly below.</p>
 
     <hr>
 
@@ -30,10 +30,21 @@
         </div>
         <button id="runCodeBtn" onclick="runCode()" class="btn-run">Run Code</button>
     </div>
-    <input type="file" id="fileInput" accept=".py" style="display: none;">
+    <input type="file" id="fileInput" accept=".py,.js,.cpp,.c,.java,.md,.txt,.ipynb" style="display: none;">
 
+    <div id="viewTabs"
+        style="display: none; gap: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+        <button id="tabPreview" onclick="toggleView('preview')" class="btn-primary"
+            style="padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem;">Preview</button>
+        <button id="tabRaw" onclick="toggleView('raw')" class="modal-input"
+            style="padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem; background: transparent; cursor: pointer; border: 1px solid var(--border-color); color: var(--text-secondary);">Code
+            (Raw)</button>
+    </div>
+
+    <div id="previewContainer"
+        style="display: none; min-height: 400px; padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto;">
+    </div>
     <div id="editorContainer" class="editor-container"></div>
-
     <div id="terminalContainer" class="terminal-container">
         <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Terminal Output</h3>
         <pre id="terminalOutput" class="terminal-output">Ready...</pre>
@@ -92,19 +103,47 @@
         });
     });
 
+    // Global tracker for precise language info
+    let currentUploadedLang = 'python';
+
     document.getElementById('fileInput').addEventListener('change', async function (e) {
         const file = e.target.files[0];
         if (!file) return;
+
+        const fileName = file.name.toLowerCase();
+        let monacoLang = 'python';
+        if (fileName.endsWith('.js')) monacoLang = 'javascript';
+        else if (fileName.endsWith('.cpp') || fileName.endsWith('.c')) monacoLang = 'cpp';
+        else if (fileName.endsWith('.java')) monacoLang = 'java';
+        else if (fileName.endsWith('.md')) monacoLang = 'markdown';
+        else if (fileName.endsWith('.txt')) monacoLang = 'plaintext';
+        else if (fileName.endsWith('.ipynb')) monacoLang = 'ipynb';
+
+        currentUploadedLang = monacoLang;
 
         const text = await file.text();
         document.getElementById('editorContainer').classList.add('editor-container-visible');
         document.getElementById('runCodeBtn').classList.add('btn-run-visible');
         document.getElementById('terminalContainer').style.display = 'block';
-        if (editor) editor.setValue(text);
+
+        if (monacoLang === 'ipynb' || monacoLang === 'markdown') {
+            document.getElementById('viewTabs').style.display = 'flex';
+            toggleView('preview'); // Default to preview
+        } else {
+            document.getElementById('viewTabs').style.display = 'none';
+            toggleView('raw');
+        }
+
+        if (editor) {
+            monaco.editor.setModelLanguage(editor.getModel(), monacoLang === 'ipynb' ? 'json' : monacoLang);
+            editor.setValue(text);
+        }
 
         isEditing = true; // Stop auto-refresh
         document.getElementById('serverStatus').innerText = "Analyzing File";
         document.getElementById('serverStatus').style.backgroundColor = "var(--warning)";
+
+        renderPreview(text, monacoLang);
 
         // Short timeout to allow UI to render the editor
         setTimeout(async () => {
@@ -117,12 +156,64 @@
         }, 500);
     });
 
+    function toggleView(mode) {
+        if (mode === 'preview') {
+            document.getElementById('previewContainer').style.display = 'block';
+            document.getElementById('editorContainer').classList.remove('editor-container-visible');
+            document.getElementById('editorContainer').style.display = 'none';
+            document.getElementById('tabPreview').className = 'btn-primary';
+            document.getElementById('tabPreview').style.background = 'var(--accent-primary)';
+            document.getElementById('tabPreview').style.color = '#ffffff';
+            document.getElementById('tabRaw').className = 'modal-input';
+            document.getElementById('tabRaw').style.background = 'transparent';
+            document.getElementById('tabRaw').style.color = 'var(--text-secondary)';
+        } else {
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('editorContainer').style.display = 'block';
+            document.getElementById('editorContainer').classList.add('editor-container-visible');
+            document.getElementById('tabRaw').className = 'btn-primary';
+            document.getElementById('tabRaw').style.background = 'var(--accent-primary)';
+            document.getElementById('tabRaw').style.color = '#ffffff';
+            document.getElementById('tabPreview').className = 'modal-input';
+            document.getElementById('tabPreview').style.background = 'transparent';
+            document.getElementById('tabPreview').style.color = 'var(--text-secondary)';
+        }
+    }
+
+    function renderPreview(text, lang) {
+        const container = document.getElementById('previewContainer');
+        container.innerHTML = '';
+
+        if (lang === 'markdown') {
+            container.innerHTML = `<div class="markdown-preview">${marked.parse(text)}</div>`;
+        } else if (lang === 'ipynb') {
+            try {
+                const notebook = JSON.parse(text);
+                let html = '';
+                if (notebook.cells) {
+                    notebook.cells.forEach((cell, idx) => {
+                        const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+                        if (cell.cell_type === 'markdown') {
+                            html += `<div class="notebook-cell markdown-cell" style="padding: 1rem; margin-bottom: 0.5rem; background: var(--bg-card); border-radius: 4px;">${marked.parse(source)}</div>`;
+                        } else if (cell.cell_type === 'code') {
+                            html += `<div class="notebook-cell code-cell" style="padding: 1rem; margin-bottom: 0.5rem; background: #1e1e1e; border-radius: 4px; border-left: 4px solid var(--accent-primary);">
+                                <div style="color: #888; font-size: 0.75rem; margin-bottom: 0.5rem; text-transform: uppercase;">[${idx}] Code</div>
+                                <pre style="margin: 0; white-space: pre-wrap;"><code style="color: #d4d4d4; font-family: monospace;">${source.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>
+                            </div>`;
+                        }
+                    });
+                }
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = `<p style="color: var(--error);">Error parsing Jupyter Notebook JSON: ${err.message}</p>`;
+            }
+        }
+    }
+
     async function generateCommentsForCode(codeText) {
 
         const docLevel = document.getElementById('docLevelSelect').value || 'maximum';
-
-        // Try to guess language based on some generic variable again (since this is out of scope of the change listener)
-        let langId = editor.getModel().getLanguageId() || 'python';
+        let langId = currentUploadedLang;
 
         try {
             // Extract
@@ -163,14 +254,35 @@
                             is_inline: item.is_inline || false,
                             language: langId,
                             doc_level: docLevel,
-                            full_replace: item.full_replace || false
+                            full_replace: item.full_replace || false,
+                            is_markdown_cell: item.is_markdown_cell || false
                         })
                     });
 
                     if (genRes.ok) {
                         const genData = await genRes.json();
 
-                        if (item.full_replace) {
+                        if (item.is_ipynb_cell) {
+                            try {
+                                const notebookText = editor.getValue();
+                                const notebookObj = JSON.parse(notebookText);
+
+                                // Make docstring into an array of lines to match ipynb spec natively
+                                const docstringLines = genData.docstring.split('\n').map(l => l + '\n');
+                                notebookObj.cells[item.cell_index].source = docstringLines;
+
+                                const newJson = JSON.stringify(notebookObj, null, 1);
+
+                                const fullRange = editor.getModel().getFullModelRange();
+                                editor.executeEdits("ai-doc-generator", [{
+                                    range: fullRange,
+                                    text: newJson,
+                                    forceMoveMarkers: true
+                                }]);
+                            } catch (err) {
+                                console.error("Failed to parse local notebook logic", err);
+                            }
+                        } else if (item.full_replace) {
                             const fullRange = editor.getModel().getFullModelRange();
                             editor.executeEdits("ai-doc-generator", [{
                                 range: fullRange,
@@ -190,6 +302,24 @@
                     }
                 }
             }
+
+            if (currentUploadedLang === 'ipynb' || currentUploadedLang === 'markdown') {
+                renderPreview(editor.getValue(), currentUploadedLang);
+            }
+
+            // Update Sidebar Language UI
+            let printLangName = currentUploadedLang;
+            let iconEmoji = '💻';
+            if (currentUploadedLang === 'python') { printLangName = 'Python'; iconEmoji = '🐍'; }
+            else if (currentUploadedLang === 'javascript') { printLangName = 'JavaScript'; iconEmoji = '🟨'; }
+            else if (currentUploadedLang === 'cpp' || currentUploadedLang === 'c') { printLangName = 'C / C++'; iconEmoji = '⚙️'; }
+            else if (currentUploadedLang === 'java') { printLangName = 'Java'; iconEmoji = '☕'; }
+            else if (currentUploadedLang === 'ipynb') { printLangName = 'Jupyter Notebook'; iconEmoji = '📓'; }
+            else if (currentUploadedLang === 'markdown') { printLangName = 'Markdown'; iconEmoji = '📝'; }
+            else if (currentUploadedLang === 'plaintext') { printLangName = 'Text'; iconEmoji = '📄'; }
+
+            document.getElementById('uiLanguageName').innerText = printLangName;
+            document.getElementById('uiLanguageIcon').innerText = iconEmoji;
 
             // Trigger dynamic sidebar metrics based on the current context
             syncSidebarConcepts(currentCode);
