@@ -61,9 +61,37 @@ async def api_extract_symbols(req: ExtractRequest):
     """
     if req.language.lower() == "python":
         items = extract_functions_and_classes(req.code, req.doc_level)
+    elif req.language.lower() == "ipynb":
+        import json
+        items = []
+        try:
+            notebook = json.loads(req.code)
+            for i, cell in enumerate(notebook.get("cells", [])):
+                if cell.get("cell_type") == "code":
+                    # Convert source array/string to string
+                    source = cell.get("source", "")
+                    if isinstance(source, list):
+                        source = "".join(source)
+                    
+                    if source.strip():
+                        items.append({
+                            "name": f"Notebook Cell {i}",
+                            "type": "CodeCell",
+                            "start_line": 1,
+                            "insert_line": 1,
+                            "indentation": "",
+                            "snippet": source,
+                            "is_inline": False,
+                            "full_replace": True,
+                            "is_ipynb_cell": True,
+                            "is_markdown_cell": False,
+                            "cell_index": i
+                        })
+        except Exception as e:
+            print(f"Failed to parse ipynb JSON: {e}")
+            items = []
     else:
-        # For non-python, we pass the entire code block to the LLM
-        # rather than writing a heavy parser for every language
+        # For non-python scripts, we pass the entire code block to the LLM
         items = [{
             "name": f"{req.language.upper()} File",
             "type": "RawBlock",
@@ -83,6 +111,7 @@ class GenerateCommentRequest(BaseModel):
     language: str = "python"
     doc_level: str = "maximum"
     full_replace: bool = False
+    is_markdown_cell: bool = False
 
 class GenerateCommentResponse(BaseModel):
     docstring: str
@@ -98,7 +127,8 @@ async def api_generate_comment(req: GenerateCommentRequest):
             req.code_snippet, 
             is_inline=req.is_inline, 
             language=req.language.lower(), 
-            doc_level=req.doc_level
+            doc_level=req.doc_level,
+            is_markdown_cell=req.is_markdown_cell
         )
         
         # If the LLM returned the fully commented code block (for non-Python)
