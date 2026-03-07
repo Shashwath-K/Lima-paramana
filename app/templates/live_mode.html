@@ -16,13 +16,17 @@
         <div style="display: flex; gap: 1rem; align-items: center;">
             <select id="docLevelSelect" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
                 <option value="minimum">Docs: Classes & Functions</option>
-                <option value="medium">Docs: Medium Density</option>
-                <option value="maximum" selected>Docs: Line-by-Line</option>
+                <option value="medium" selected>Docs: Medium Density</option>
+                <option value="maximum">Docs: Line-by-Line</option>
             </select>
             <select id="langSelect" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;"
                 onchange="updateEditorLanguage()">
                 <option value="python" selected>Python</option>
                 <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript (.ts)</option>
+                <option value="jsx">React (.jsx / .tsx)</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
                 <option value="cpp">C / C++</option>
                 <option value="java">Java</option>
                 <option value="markdown">Markdown</option>
