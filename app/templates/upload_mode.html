@@ -27,8 +27,9 @@
                 <option value="medium" selected>Docs: Medium Density</option>
                 <option value="maximum">Docs: Line-by-Line</option>
             </select>
+            <button id="downloadBtn" onclick="downloadFile()" class="btn-primary"
+                style="display: none; background-color: var(--success); padding: 0.5rem 1rem;">Download File</button>
         </div>
-        <button id="runCodeBtn" onclick="runCode()" class="btn-run">Run Code</button>
     </div>
     <input type="file" id="fileInput" accept=".py,.js,.jsx,.ts,.tsx,.cpp,.c,.java,.md,.txt,.html,.css,.ipynb"
         style="display: none;">
@@ -43,28 +44,6 @@
         style="display: none; min-height: 400px; padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto;">
     </div>
     <div id="editorContainer" class="editor-container"></div>
-    <div id="terminalContainer" class="terminal-container">
-        <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Terminal Output</h3>
-        <pre id="terminalOutput" class="terminal-output">Ready...</pre>
-    </div>
-</div>
-
-<h2>Recent Generations</h2>
-<div class="card" id="historyCard">
-    {% if history %}
-    {% for entry in history %}
-    <div class="log-entry">
-        <div class="timestamp">{{ entry.timestamp }}</div>
-        <p style="margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Code Snippet:</p>
-        <pre><code class="code-block">{{ entry.code }}</code></pre>
-        <p style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Generated Docstring:
-        </p>
-        <pre><code class="doc-block">{{ entry.docstring }}</code></pre>
-    </div>
-    {% endfor %}
-    {% else %}
-    <p>No documentation generated yet.</p>
-    {% endif %}
 </div>
 {% endblock %}
 
@@ -103,10 +82,14 @@
 
     // Global tracker for precise language info
     let currentUploadedLang = 'python';
+    let originalFileName = 'download.txt'; // Default fallback
 
     document.getElementById('fileInput').addEventListener('change', async function (e) {
         const file = e.target.files[0];
         if (!file) return;
+
+        originalFileName = file.name;
+        document.getElementById('downloadBtn').style.display = 'inline-block';
 
         const fileName = file.name.toLowerCase();
         let monacoLang = 'python';
@@ -124,8 +107,6 @@
 
         const text = await file.text();
         document.getElementById('editorContainer').classList.add('editor-container-visible');
-        document.getElementById('runCodeBtn').classList.add('btn-run-visible');
-        document.getElementById('terminalContainer').style.display = 'block';
 
         if (monacoLang === 'ipynb' || monacoLang === 'markdown') {
             document.getElementById('viewTabs').style.display = 'flex';
@@ -412,65 +393,23 @@
             labelText.innerText = "Analysis Failed";
         }
     }
-
-    async function runCode() {
-        const btn = document.getElementById('runCodeBtn');
-        const term = document.getElementById('terminalOutput');
+    function downloadFile() {
+        if (!editor) return;
         const currentCode = editor.getValue();
 
-        if (!currentCode.trim()) {
-            term.innerText = "No code to run.";
-            return;
-        }
+        // Create Blob and trigger download
+        const blob = new Blob([currentCode], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = originalFileName;
+        document.body.appendChild(a);
+        a.click();
 
-        btn.innerText = "Running...";
-        btn.style.backgroundColor = "var(--warning)";
-        term.innerText = "Executing...\n";
-        term.style.color = "var(--text-primary)";
-
-        try {
-            const res = await fetch('/api/run-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: currentCode })
-            });
-
-            if (!res.ok) throw new Error("Failed to execute code.");
-
-            const data = await res.json();
-
-            if (data.error) {
-                term.style.color = "var(--danger)"; // Red for errors
-                term.innerText = (data.output ? data.output + "\n" : "") + data.error;
-            } else {
-                term.innerText = data.output || "(Code executed successfully with no output)";
-            }
-        } catch (err) {
-            term.style.color = "var(--danger)";
-            term.innerText = "Error interacting with backend: " + err.message;
-        } finally {
-            btn.innerText = "Run Code";
-            btn.style.backgroundColor = "var(--success)";
-        }
+        // Cleanup
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
-
-    // Auto-refresh the page every 5 seconds to see new generations dynamically -> only if not editing
-    setInterval(() => {
-        const editorDiv = document.getElementById('editorContainer');
-        const isEditorVisible = editorDiv.classList.contains('editor-container-visible');
-
-        if (!isEditing && !isEditorVisible) {
-            // Only refresh the history box silently using a background fetch to avoid ugly full reloads
-            fetch(window.location.href)
-                .then(r => r.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const newHistory = doc.getElementById('historyCard').innerHTML;
-                    document.getElementById('historyCard').innerHTML = newHistory;
-                });
-        }
-    }, 5000);
 
     // Global state for context menu flow
     let highlightedCodeForExplanation = "";
