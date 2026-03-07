@@ -59,7 +59,7 @@ body {
 
 .layout-body {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 300px;
     gap: 2rem;
     max-width: 1400px;
     margin: 0 auto;
@@ -67,6 +67,12 @@ body {
     width: 100%;
     box-sizing: border-box;
     flex: 1;
+    transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1), gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.layout-body.sidebar-collapsed {
+    grid-template-columns: 1fr 0px;
+    gap: 0;
 }
 
 .main-content {
