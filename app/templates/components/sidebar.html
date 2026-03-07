@@ -63,7 +63,17 @@
 </aside>
 
 <script>
+    // Remove "collapsed" default if it was hard-coded in the HTML structure so it syncs properly
+    const sidebar = document.getElementById('sidebarWrapper');
+    const layoutBody = document.querySelector('.layout-body');
+
+    // Check initial state incase it was set by other files
+    if (sidebar.classList.contains('collapsed')) {
+        layoutBody.classList.add('sidebar-collapsed');
+    }
+
     document.getElementById('sidebarToggleBtn').addEventListener('click', function () {
-        document.getElementById('sidebarWrapper').classList.toggle('collapsed');
+        sidebar.classList.toggle('collapsed');
+        layoutBody.classList.toggle('sidebar-collapsed');
     });
 </script>
