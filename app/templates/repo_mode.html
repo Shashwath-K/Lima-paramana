@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Repository Processing - Ghost-Typer{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/components/editor.css">
+<link rel="stylesheet" href="/static/css/components/cards.css">
+<style>
+    .repo-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        height: 8px;
+        background-color: var(--bg-card);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background-color: var(--accent-primary);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    .git-diff-viewer {
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        padding: 1rem;
+        border-radius: 8px;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 0.875rem;
+        white-space: pre-wrap;
+        overflow-y: auto;
+        max-height: 400px;
+        line-height: 1.4;
+    }
+
+    .diff-add {
+        color: #89d185;
+    }
+
+    .diff-remove {
+        color: #f48771;
+    }
+
+    .diff-meta {
+        color: #569cd6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="/" class="back-link">Back to Home</a>
+<h1>Repository Mode</h1>
+
+<div class="card repo-dashboard">
+    <!-- UI Step 1: Upload -->
+    <div id="step-upload" style="display: block;">
+        <h3>Upload Repository (.zip)</h3>
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+            Upload a full Git repository as a .zip file. Ghost-Typer will safely extract it, scan for code files
+            recursively,
+            and deploy LLM workers to generate documentation across the entire codebase.
+        </p>
+
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <button onclick="document.getElementById('repoFileInput').click()" class="btn-primary">Upload .zip</button>
+            <select id="repoDocLevel" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                <option value="minimum">Docs: Classes & Functions</option>
+                <option value="medium" selected>Docs: Medium Density</option>
+                <option value="maximum">Docs: Line-by-Line</option>
+            </select>
+        </div>
+        <input type="file" id="repoFileInput" accept=".zip" style="display: none;">
+    </div>
+
+    <!-- UI Step 2: Processing -->
+    <div id="step-processing" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="processStatusTitle">Processing Repository...</h3>
+            <span id="processPercentage" style="font-weight: 600; color: var(--accent-primary);">0%</span>
+        </div>
+
+        <p id="processCurrentFile"
+            style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; font-family: monospace;">
+            Initializing...
+        </p>
+
+        <div class="progress-bar-container">
+            <div id="processProgressBar" class="progress-bar-fill"></div>
+        </div>
+    </div>
+
+    <!-- UI Step 3: Review & Commit -->
+    <div id="step-review" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3>Review Git Diff</h3>
+            <div class="status" style="background-color: var(--success);">Generation Complete</div>
+        </div>
+
+        <div id="diffViewer" class="git-diff-viewer"></div>
+
+        <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <label for="commitMessage" style="font-weight: 600; font-size: 0.875rem;">Commit Message</label>
+            <input type="text" id="commitMessage" class="modal-input"
+                value="docs(ai): generated docstrings across repository" style="width: 100%; max-width: 500px;">
+
+            <div style="margin-top: 0.5rem;">
+                <button id="commitBtn" onclick="commitAndDownload()" class="btn-primary"
+                    style="background-color: var(--success);">Commit & Download .zip</button>
+                <span id="commitErrorMsg" style="color: var(--danger); margin-left: 1rem; display: none;">Error
+                    committing changes.</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentSessionId = null;
+    let pollInterval = null;
+
+    document.getElementById('repoFileInput').addEventListener('change', async function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.zip')) {
+            alert('Please upload a .zip file containing your repository.');
+            return;
+        }
+
+        const docLevel = document.getElementById('repoDocLevel').value;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_level', docLevel);
+
+        // UI transitions
+        document.getElementById('step-upload').style.display = 'none';
+        document.getElementById('step-processing').style.display = 'block';
+
+        try {
+            const res = await fetch('/api/repo/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Upload failed");
+            }
+
+            const data = await res.json();
+            currentSessionId = data.session_id;
+
+            // Start polling status
+            pollInterval = setInterval(pollJobStatus, 1500);
+
+        } catch (err) {
+            console.error(err);
+            alert("Error initializing repository: " + err.message);
+            document.getElementById('step-upload').style.display = 'block';
+            document.getElementById('step-processing').style.display = 'none';
+        }
+    });
+
+    async function pollJobStatus() {
+        if (!currentSessionId) return;
+
+        try {
+            const res = await fetch(`/api/repo/status/${currentSessionId}`);
+            if (!res.ok) throw new Error("Status endpoint failed");
+
+            const data = await res.json();
+
+            // Update UI
+            const titleElem = document.getElementById('processStatusTitle');
+            const fileElem = document.getElementById('processCurrentFile');
+            const barElem = document.getElementById('processProgressBar');
+            const pctElem = document.getElementById('processPercentage');
+
+            if (data.status === 'extracting') {
+                titleElem.innerText = "Extracting Archive...";
+                fileElem.innerText = "Decompressing ZIP contents securely.";
+            } else if (data.status === 'initializing_git') {
+                titleElem.innerText = "Initializing Git System...";
+                fileElem.innerText = "Setting up a clean staging environment.";
+            } else if (data.status === 'scanning') {
+                titleElem.innerText = "Scanning Directory Tree...";
+                fileElem.innerText = "Identifying valid code files for LLM analysis.";
+            } else if (data.status === 'processing') {
+                const total = data.total_files || 1;
+                const done = data.files_done || 0;
+                const pct = Math.floor((done / total) * 100);
+
+                titleElem.innerText = `Generating Documentation (${done}/${total})`;
+                fileElem.innerText = `Currently modifying: ${data.current_file}`;
+                barElem.style.width = `${pct}%`;
+                pctElem.innerText = `${pct}%`;
+            } else if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                barElem.style.width = `100%`;
+                pctElem.innerText = `100%`;
+                await loadDiffAndShowReview();
+            } else if (data.status === 'failed') {
+                clearInterval(pollInterval);
+                titleElem.innerText = "Processing Failed";
+                titleElem.style.color = "var(--danger)";
+                fileElem.innerText = `Error: ${data.error}`;
+                fileElem.style.color = "var(--danger)";
+            }
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function loadDiffAndShowReview() {
+        try {
+            const res = await fetch(`/api/repo/diff/${currentSessionId}`);
+            if (!res.ok) throw new Error("Diff parsing failed");
+
+            const data = await res.json();
+            const diffText = data.diff;
+
+            // Format Diff for UI
+            const viewer = document.getElementById('diffViewer');
+            if (!diffText.trim()) {
+                viewer.innerHTML = '<span style="color: var(--text-secondary);">No changes were made to the repository.</span>';
+            } else {
+                // Crude but effective syntax highlighting for terminal diff
+                let html = '';
+                const lines = diffText.split('\n');
+                for (let line of lines) {
+                    // Escape HTML securely
+                    line = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    if (line.startsWith('+') && !line.startsWith('+++')) {
+                        html += `<span class="diff-add">${line}</span>\n`;
+                    } else if (line.startsWith('-') && !line.startsWith('---')) {
+                        html += `<span class="diff-remove">${line}</span>\n`;
+                    } else if (line.startsWith('@@') || line.startsWith('diff') || line.startsWith('index') || line.startsWith('+++') || line.startsWith('---')) {
+                        html += `<span class="diff-meta">${line}</span>\n`;
+                    } else {
+                        html += `${line}\n`;
+                    }
+                }
+                viewer.innerHTML = html;
+            }
+
+            // Transition UI
+            document.getElementById('step-processing').style.display = 'none';
+            document.getElementById('step-review').style.display = 'block';
+
+        } catch (err) {
+            console.error(err);
+            alert("Could not load Git Diff: " + err.message);
+        }
+    }
+
+    async function commitAndDownload() {
+        const btn = document.getElementById('commitBtn');
+        const msg = document.getElementById('commitMessage').value || "docs(ai): auto-generated docs";
+        const errorMsg = document.getElementById('commitErrorMsg');
+
+        btn.innerText = "Zipping Repository...";
+        btn.disabled = true;
+        btn.style.opacity = 0.5;
+        errorMsg.style.display = 'none';
+
+        try {
+            const res = await fetch(`/api/repo/commit/${currentSessionId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Commit failed.");
+            }
+
+            // Trigger file download natively for Blob responses
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `documented_repo_${Date.now()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Reset UI for next job
+            btn.innerText = "Downloaded successfully!";
+
+        } catch (err) {
+            console.error(err);
+            errorMsg.innerText = err.message;
+            errorMsg.style.display = 'inline-block';
+            btn.innerText = "Commit & Download .zip";
+            btn.disabled = false;
+            btn.style.opacity = 1;
+        }
+    }
+</script>
+{% endblock %}
