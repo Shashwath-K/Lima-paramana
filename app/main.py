@@ -44,6 +44,15 @@ async def live_mode(request: Request):
         "history": list(reversed(history)) # We can share the same history or omit it
     })
 
+@app.get("/repo-mode")
+async def repo_mode(request: Request):
+    """
+    Renders the Repository Upload & Processing tool.
+    """
+    return templates.TemplateResponse("repo_mode.html", {
+        "request": request
+    })
+
 if __name__ == "__main__":
     import uvicorn
     # Make sure to run this file from the project root!
