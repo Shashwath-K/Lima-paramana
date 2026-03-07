@@ -33,12 +33,9 @@
     <input type="file" id="fileInput" accept=".py,.js,.cpp,.c,.java,.md,.txt,.ipynb" style="display: none;">
 
     <div id="viewTabs"
-        style="display: none; gap: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-        <button id="tabPreview" onclick="toggleView('preview')" class="btn-primary"
-            style="padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem;">Preview</button>
-        <button id="tabRaw" onclick="toggleView('raw')" class="modal-input"
-            style="padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem; background: transparent; cursor: pointer; border: 1px solid var(--border-color); color: var(--text-secondary);">Code
-            (Raw)</button>
+        style="display: none; gap: 1rem; margin-top: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+        <button id="tabPreview" onclick="toggleView('preview')" class="btn-primary">Preview</button>
+        <button id="tabRaw" onclick="toggleView('raw')" class="btn-secondary">Code (Raw)</button>
     </div>
 
     <div id="previewContainer"
@@ -157,26 +154,23 @@
     });
 
     function toggleView(mode) {
+        const tabPreview = document.getElementById('tabPreview');
+        const tabRaw = document.getElementById('tabRaw');
+        tabPreview.style.cssText = '';
+        tabRaw.style.cssText = '';
+
         if (mode === 'preview') {
             document.getElementById('previewContainer').style.display = 'block';
             document.getElementById('editorContainer').classList.remove('editor-container-visible');
             document.getElementById('editorContainer').style.display = 'none';
-            document.getElementById('tabPreview').className = 'btn-primary';
-            document.getElementById('tabPreview').style.background = 'var(--accent-primary)';
-            document.getElementById('tabPreview').style.color = '#ffffff';
-            document.getElementById('tabRaw').className = 'modal-input';
-            document.getElementById('tabRaw').style.background = 'transparent';
-            document.getElementById('tabRaw').style.color = 'var(--text-secondary)';
+            tabPreview.className = 'btn-primary';
+            tabRaw.className = 'btn-secondary';
         } else {
             document.getElementById('previewContainer').style.display = 'none';
             document.getElementById('editorContainer').style.display = 'block';
             document.getElementById('editorContainer').classList.add('editor-container-visible');
-            document.getElementById('tabRaw').className = 'btn-primary';
-            document.getElementById('tabRaw').style.background = 'var(--accent-primary)';
-            document.getElementById('tabRaw').style.color = '#ffffff';
-            document.getElementById('tabPreview').className = 'modal-input';
-            document.getElementById('tabPreview').style.background = 'transparent';
-            document.getElementById('tabPreview').style.color = 'var(--text-secondary)';
+            tabRaw.className = 'btn-primary';
+            tabPreview.className = 'btn-secondary';
         }
     }
 
