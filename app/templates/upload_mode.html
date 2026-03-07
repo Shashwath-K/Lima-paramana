@@ -24,13 +24,14 @@
             <button onclick="document.getElementById('fileInput').click()" class="btn-primary">Upload File</button>
             <select id="docLevelSelect" class="modal-input" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
                 <option value="minimum">Docs: Classes & Functions</option>
-                <option value="medium">Docs: Medium Density</option>
-                <option value="maximum" selected>Docs: Line-by-Line</option>
+                <option value="medium" selected>Docs: Medium Density</option>
+                <option value="maximum">Docs: Line-by-Line</option>
             </select>
         </div>
         <button id="runCodeBtn" onclick="runCode()" class="btn-run">Run Code</button>
     </div>
-    <input type="file" id="fileInput" accept=".py,.js,.cpp,.c,.java,.md,.txt,.ipynb" style="display: none;">
+    <input type="file" id="fileInput" accept=".py,.js,.jsx,.ts,.tsx,.cpp,.c,.java,.md,.txt,.html,.css,.ipynb"
+        style="display: none;">
 
     <div id="viewTabs"
         style="display: none; gap: 1rem; margin-top: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
@@ -109,7 +110,10 @@
 
         const fileName = file.name.toLowerCase();
         let monacoLang = 'python';
-        if (fileName.endsWith('.js')) monacoLang = 'javascript';
+        if (fileName.endsWith('.js') || fileName.endsWith('.jsx')) monacoLang = 'javascript';
+        else if (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) monacoLang = 'typescript';
+        else if (fileName.endsWith('.html')) monacoLang = 'html';
+        else if (fileName.endsWith('.css')) monacoLang = 'css';
         else if (fileName.endsWith('.cpp') || fileName.endsWith('.c')) monacoLang = 'cpp';
         else if (fileName.endsWith('.java')) monacoLang = 'java';
         else if (fileName.endsWith('.md')) monacoLang = 'markdown';
@@ -305,7 +309,10 @@
             let printLangName = currentUploadedLang;
             let iconEmoji = '💻';
             if (currentUploadedLang === 'python') { printLangName = 'Python'; iconEmoji = '🐍'; }
-            else if (currentUploadedLang === 'javascript') { printLangName = 'JavaScript'; iconEmoji = '🟨'; }
+            else if (currentUploadedLang === 'javascript') { printLangName = 'JavaScript / React'; iconEmoji = '🟨'; }
+            else if (currentUploadedLang === 'typescript') { printLangName = 'TypeScript'; iconEmoji = '📘'; }
+            else if (currentUploadedLang === 'html') { printLangName = 'HTML'; iconEmoji = '🌐'; }
+            else if (currentUploadedLang === 'css') { printLangName = 'CSS'; iconEmoji = '🎨'; }
             else if (currentUploadedLang === 'cpp' || currentUploadedLang === 'c') { printLangName = 'C / C++'; iconEmoji = '⚙️'; }
             else if (currentUploadedLang === 'java') { printLangName = 'Java'; iconEmoji = '☕'; }
             else if (currentUploadedLang === 'ipynb') { printLangName = 'Jupyter Notebook'; iconEmoji = '📓'; }
