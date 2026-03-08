@@ -228,3 +228,86 @@ async def api_analyze_similarity(req: AnalysisRequest):
     
     result = await analyze_similarity(req.code)
     return result
+
+# --- REPO MODE ENDPOINTS ---
+from fastapi import UploadFile, File, BackgroundTasks, Form
+from fastapi.responses import FileResponse, JSONResponse
+from app.services.git_service import (
+    init_job, get_job_status, process_repo_background, 
+    get_repo_diff, commit_and_zip_repo
+)
+import os
+
+@router.post("/repo/upload")
+async def api_repo_upload(doc_level: str = Form("medium"), file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """
+    Receives a .zip repository, initializes a job, and starts background extraction & processing.
+    """
+    if not file.filename.endswith(".zip"):
+        return JSONResponse(status_code=400, content={"error": "Only .zip repositories are supported."})
+        
+    session_id = init_job()
+    
+    # Save the zip temporarily
+    temp_dir = os.path.join("temp_repos", session_id)
+    os.makedirs(temp_dir, exist_ok=True)
+    zip_path = os.path.join(temp_dir, file.filename)
+    
+    with open(zip_path, "wb") as buffer:
+        buffer.write(await file.read())
+        
+    extract_path = os.path.join(temp_dir, "extracted")
+    
+    background_tasks.add_task(process_repo_background, session_id, zip_path, extract_path, doc_level)
+    
+    return {"session_id": session_id}
+
+@router.get("/repo/status/{session_id}")
+async def api_repo_status(session_id: str):
+    """
+    Polling endpoint for UI to check background progress.
+    """
+    return get_job_status(session_id)
+
+@router.get("/repo/diff/{session_id}")
+async def api_repo_diff(session_id: str):
+    """
+    Returns the git diff created by the LLM generated comments.
+    """
+    diff_text = get_repo_diff(session_id)
+    return {"diff": diff_text}
+
+class CommitRequest(BaseModel):
+    message: str
+
+@router.post("/repo/commit/{session_id}")
+async def api_repo_commit(session_id: str, req: CommitRequest, background_tasks: BackgroundTasks):
+    """
+    Commits changes using the given message, zips the modified repo, and returns it.
+    Cleans up the temp folder afterwards.
+    """
+    status = get_job_status(session_id)
+    if status.get("status") not in ["completed", "failed"]:
+        return JSONResponse(status_code=400, content={"error": "Job is not ready for commit."})
+        
+    temp_dir = os.path.join("temp_repos", session_id)
+    output_zip_path = os.path.join(temp_dir, "documented_repo.zip")
+    
+    try:
+        commit_and_zip_repo(session_id, req.message, output_zip_path)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+        
+    # Check if a zip was created
+    if not os.path.exists(output_zip_path):
+        return JSONResponse(status_code=500, content={"error": "Failed to create output zip."})
+        
+    # Schedule cleanup after download
+    import shutil
+    background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
+    
+    return FileResponse(
+        output_zip_path, 
+        media_type='application/zip', 
+        filename="documented_repo.zip"
+    )
